@@ -9,14 +9,17 @@ func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool
     case .nodes(let contexts):
         if contexts.isEmpty { return false }
         if stringOnly {
+            var printed = false
             for ctx in contexts {
                 for key in ctx.matchedPropertyKeys {
                     if let val = ctx.node.properties[key] {
                         print(rawString(val))
+                        printed = true
                     }
                 }
             }
-            return true
+            if printed { return true }
+            // No property keys matched (name/class match) — fall through to normal rendering
         }
         for (i, ctx) in contexts.enumerated() {
             if i > 0 { print("") }
@@ -47,6 +50,16 @@ func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool
     }
 }
 
+// Decode raw bytes as a UTF-8 string (null-terminated), or nil if binary
+private func decodeBytesAsString(_ bytes: [UInt8]) -> String? {
+    let stripped = bytes.last == 0 ? Array(bytes.dropLast()) : bytes
+    guard !stripped.isEmpty,
+          let str = String(bytes: stripped, encoding: .utf8),
+          str.unicodeScalars.allSatisfy({ $0.value >= 32 || $0.value == 9 })
+    else { return nil }
+    return str
+}
+
 // Raw string value with no quotes or decoration — for scripting use
 func rawString(_ value: IORegValue) -> String {
     switch value {
@@ -55,12 +68,7 @@ func rawString(_ value: IORegValue) -> String {
     case .float(let f):  return "\(f)"
     case .string(let s): return s
     case .data(let bytes):
-        let stripped = bytes.last == 0 ? Array(bytes.dropLast()) : bytes
-        if !stripped.isEmpty,
-           let str = String(bytes: stripped, encoding: .utf8),
-           str.unicodeScalars.allSatisfy({ $0.value >= 32 || $0.value == 9 }) {
-            return str
-        }
+        if let str = decodeBytesAsString(bytes) { return str }
         return bytes.map { String(format: "%02x", $0) }.joined(separator: " ")
     case .array(let items): return items.map { rawString($0) }.joined(separator: "\n")
     case .dict(let pairs):
@@ -174,11 +182,7 @@ func formatValue(_ value: IORegValue, indent: Int) -> String {
         return "\"\(escaped)\""
     case .data(let bytes):
         if bytes.isEmpty { return "<empty>" }
-        // Try to decode as a UTF-8 string (strip trailing null bytes first)
-        let stripped = bytes.last == 0 ? Array(bytes.dropLast()) : bytes
-        if !stripped.isEmpty, let str = String(bytes: stripped, encoding: .utf8), str.unicodeScalars.allSatisfy({ $0.value >= 32 || $0.value == 9 }) {
-            return "\"\(str)\""
-        }
+        if let str = decodeBytesAsString(bytes) { return "\"\(str)\"" }
         let hex = bytes.prefix(16).map { String(format: "%02x", $0) }.joined(separator: " ")
         if bytes.count > 16 {
             return "<\(hex) ...> (\(bytes.count) bytes)"

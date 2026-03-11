@@ -30,9 +30,9 @@ struct Ezio: ParsableCommand {
               3) Scoped search (similar to xpath):
 
                   ezio '/IOService//[AppleSmartBattery]'              by class
-                  ezio '/IOService//*[contains(@name,"Battery")]'     substring on name
-                  ezio '/IOService//*[contains(@class,"CPU")]'        substring on class
-                  ezio '/IOService//*[@id=0x100000300]'               by registry ID
+                  ezio '/IOService//[contains(@name,"Battery")]'      substring on name
+                  ezio '/IOService//[contains(@class,"CPU")]'         substring on class
+                  ezio '/IOService//[@id=0x100000300]'                by registry ID
 
             COLLECT: Extract key / value strings.
 

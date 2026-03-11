@@ -1,8 +1,7 @@
 // PathParser.swift — Tokenize and parse XPath-style path expressions
 
-let knownPlanes: Set<String> = [
-    "IOService", "IOPower", "IODeviceTree", "IOAudio", "IOFireWire", "IOUSB",
-]
+let planeOrder: [String] = ["IOService", "IOPower", "IODeviceTree", "IOUSB", "IOAudio", "IOFireWire"]
+let knownPlanes: Set<String> = Set(planeOrder)
 
 // MARK: - AST types
 
@@ -272,7 +271,7 @@ struct PathParser {
 
     // Called after consuming // at the start
     private mutating func parseDoubleSlashRoot() throws -> PathExpr {
-        let (step, _) = try parseNameOrWildcard(recursive: true)
+        let step = try parseNameOrWildcard(recursive: true)
         var steps = [step]
         let (more, propSel) = try parseMoreSteps()
         steps += more
@@ -294,14 +293,14 @@ struct PathParser {
                 advance()
                 return PathExpr(plane: plane, steps: [], propertySelect: p, isImplicitSearch: false)
             }
-            let (step, _) = try parseNameOrWildcard(recursive: false)
+            let step = try parseNameOrWildcard(recursive: false)
             var steps = [step]
             let (more, propSel) = try parseMoreSteps()
             steps += more
             return PathExpr(plane: plane, steps: steps, propertySelect: propSel, isImplicitSearch: false)
         case .doubleSlash:
             advance()
-            let (step, _) = try parseNameOrWildcard(recursive: true)
+            let step = try parseNameOrWildcard(recursive: true)
             var steps = [step]
             let (more, propSel) = try parseMoreSteps()
             steps += more
@@ -326,12 +325,12 @@ struct PathParser {
                     advance()
                     return (steps, p)
                 } else if !atEnd {
-                    let (step, _) = try parseNameOrWildcard(recursive: false)
+                    let step = try parseNameOrWildcard(recursive: false)
                     steps.append(step)
                 }
             case .doubleSlash:
                 advance()
-                let (step, _) = try parseNameOrWildcard(recursive: true)
+                let step = try parseNameOrWildcard(recursive: true)
                 steps.append(step)
             default:
                 return (steps, nil)
@@ -340,23 +339,20 @@ struct PathParser {
         return (steps, nil)
     }
 
-    private mutating func parseNameOrWildcard(recursive: Bool) throws -> (PathStep, Void) {
+    private mutating func parseNameOrWildcard(recursive: Bool) throws -> PathStep {
         switch current {
         case .asterisk:
             advance()
             let preds = try parsePredicates()
-            let step: PathStep = recursive ? .recursive(.wildcard, preds) : .direct(.wildcard, preds)
-            return (step, ())
+            return recursive ? .recursive(.wildcard, preds) : .direct(.wildcard, preds)
         case .identifier(let n):
             advance()
             let preds = try parsePredicates()
-            let step: PathStep = recursive ? .recursive(.name(n), preds) : .direct(.name(n), preds)
-            return (step, ())
+            return recursive ? .recursive(.name(n), preds) : .direct(.name(n), preds)
         case .openBracket:
             // [ClassName] with no preceding name/wildcard — treat as wildcard + class predicate
             let preds = try parsePredicates()
-            let step: PathStep = recursive ? .recursive(.wildcard, preds) : .direct(.wildcard, preds)
-            return (step, ())
+            return recursive ? .recursive(.wildcard, preds) : .direct(.wildcard, preds)
         default:
             throw PathError.expectedName
         }

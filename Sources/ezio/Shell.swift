@@ -62,8 +62,7 @@ func runInteractive(planeLoader: (String) throws -> IORegNode) {
         case "ls":
             switch state.level {
             case .registry:
-                let planes = ["IOService", "IOPower", "IODeviceTree", "IOUSB", "IOAudio", "IOFireWire"]
-                for (i, p) in planes.enumerated() {
+                for (i, p) in planeOrder.enumerated() {
                     print(String(format: "  %3d  %@", i + 1, p))
                 }
             case .plane(_, _, _):
@@ -129,13 +128,12 @@ private func cmdCD(_ target: String, state: inout ShellState, planeLoader: (Stri
     switch state.level {
     case .registry:
         // At IORegistry root — target must be a plane name or index
-        let planes = ["IOService", "IOPower", "IODeviceTree", "IOUSB", "IOAudio", "IOFireWire"]
         let planeName: String?
-        if let i = Int(target), i >= 1 && i <= planes.count {
-            planeName = planes[i - 1]
+        if let i = Int(target), i >= 1 && i <= planeOrder.count {
+            planeName = planeOrder[i - 1]
         } else if knownPlanes.contains(target) {
             planeName = target
-        } else if let match = planes.first(where: { $0.lowercased().hasPrefix(target.lowercased()) }) {
+        } else if let match = planeOrder.first(where: { $0.lowercased().hasPrefix(target.lowercased()) }) {
             planeName = match
         } else {
             planeName = nil
