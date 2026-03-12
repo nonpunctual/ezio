@@ -6,71 +6,78 @@ import Darwin
 struct Ezio: ParsableCommand {
     static var configuration = CommandConfiguration(
         commandName: "ezio",
-        abstract: "Navigate and search the macOS IORegistry.",
+        abstract: "A fast, scriptable navigator for the macOS IORegistry.",
         discussion: """
-            The easiest way to use ezio is in a 2-phase workflow:
+            The best way to use ezio is in a 2-phase workflow:
 
-            1) Discover
-            2) Collect
+            DISCOVER --> COLLECT
 
             DISCOVER: Find the strings you need — 3 ways.
 
-              1) Interactive shell (best for exploration, similar to dscl):
+              1. Interactive shell - best for exploration, like dscl or scutil:
 
                   ezio -i
                     > ls, cd, read, get, find
 
-              2) Bare search (matches node name, class, and property key):
+              2. Bare search - matches node class, name, property key:
 
                   ezio AppleSmartBattery              find node, see its location
                   ezio AppleSmartBattery -p           find node + show all properties
-                  ezio AppleSmartBattery -p -C        find node + properties + children
+                  ezio AppleSmartBattery -p -C        full recursive child tree
+                  ezio AppleSmartBattery -p -C -F     folded, enumerated child list
                   ezio AppleRawBatteryVoltage         find any node that has this key
 
-              3) Scoped search (similar to xpath):
+                  ezio '/IOService//J516sAP' -C -F    list immediate children, enumerated
+                  ezio '/IOService//J516sAP/[3]'      navigate to 3rd child by position
+                  ezio '/IOService//J516sAP/[3]' -p   show properties of the 3rd child
 
-                  ezio '/IOService//[AppleSmartBattery]'              by class
-                  ezio '/IOService//[contains(@name,"Battery")]'      substring on name
-                  ezio '/IOService//[contains(@class,"CPU")]'         substring on class
-                  ezio '/IOService//[@id=0x100000300]'                by registry ID
+              3. Scoped search - similar to xpath:
 
-            COLLECT: Extract key / value strings.
+                  ezio '/IOService//[AppleSmartBattery]'           by class
+                  ezio '/IOService//[contains(@name,"Battery")]'   substring on name
+                  ezio '/IOService//[contains(@class,"CPU")]'      substring on class
+                  ezio '/IOService//[@id=0x100000300]'             by registry ID
 
-            EXAMPLES:
+            COLLECT - Once a node and target key / value is discovered, extract it:
 
-              ezio '/IOService//AppleSmartBattery/@AppleRawBatteryVoltage' -S
-              ezio '/IOService//[IOPlatformExpertDevice]/@IOPlatformUUID' -S
-              ezio '/IOService//AppleSmartBattery/@CurrentCapacity' -S
-              ezio product-name -S
+              1. Parsing / Scripting:
+
+                  % ezio '/IOService//AppleSmartBattery/@CurrentCapacity' -S
+                  100
+
+                  % ezio '/IOService//[IOPlatformExpertDevice]/@IOPlatformUUID' -S
+                  1Z848BE8-E47F-5354-9D90-Z20450BE4CF9
+
+                  % ezio '/IOService//AppleSmartBattery/@AppleRawBatteryVoltage' -S
+                  12819
+
+                  % ezio product-name -S
+                  MacBook Pro (16-inch, Nov 2023)
 
             The -S flag attempts to print the raw value with no formatting.
-
-            OTHER:
-
-              ezio --planes                       list all IORegistry planes
             """
     )
 
     @Argument(help: "Path expression or bare name to search.")
     var path: String?
 
-    @Flag(name: [.customShort("C"), .customLong("children")], help: "Show children tree.")
-    var children: Bool = false
-
-    @Flag(name: [.customShort("i"), .customLong("interactive")], help: "Enter interactive shell mode.")
+    @Flag(name: [.customShort("i"), .customLong("interactive")], help: "Enter interactive shell mode")
     var interactive: Bool = false
 
-    @Flag(name: [.customShort("p"), .customLong("properties")], help: "Show properties bag.")
-    var properties: Bool = false
+    @Flag(name: [.customShort("P"), .customLong("planes")], help: "List all IORegistry planes")
+    var planes: Bool = false
 
-    @Flag(name: [.customShort("S"), .customLong("string")], help: "Print raw string value only (for scripting).")
-    var stringOnly: Bool = false
+    @Flag(name: [.customShort("C"), .customLong("children")], help: "Show expansion of selected node")
+    var children: Bool = false
 
-    @Flag(name: [.customShort("F"), .customLong("fold")], help: "Fold children — show flat numbered list instead of recursive tree (use with -C).")
+    @Flag(name: [.customShort("F"), .customLong("fold")], help: "Show folded, enumerated child nodes")
     var fold: Bool = false
 
-    @Flag(name: [.customShort("P"), .customLong("planes")], help: "List all IORegistry planes.")
-    var planes: Bool = false
+    @Flag(name: [.customShort("p"), .customLong("properties")], help: "Show properties bag")
+    var properties: Bool = false
+
+    @Flag(name: [.customShort("S"), .customLong("string")], help: "Extract raw value without breadcrumbs")
+    var stringOnly: Bool = false
 
     func run() throws {
         // Detect piped stdin before anything else.

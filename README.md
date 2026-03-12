@@ -48,6 +48,7 @@ OPTIONS:
 | `keys` | list property key names |
 | `get <key>` | show raw value of a property |
 | `find <term>` | search from current node |
+| `pwd` | show current path |
 | `quit` | exit |
 
 ### Path syntax reference
