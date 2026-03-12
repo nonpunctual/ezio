@@ -54,7 +54,7 @@ struct Ezio: ParsableCommand {
                   % ezio product-name -S
                   MacBook Pro (16-inch, Nov 2023)
 
-            The -S flag attempts to print the raw value with no formatting.
+            The -S flag attempts to print the raw value with no formatting. ezio converts data values stored in the IORegistry as raw bytes to plain text.
             """
     )
 
