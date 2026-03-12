@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - Main render entry point
 
-func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool, stringOnly: Bool = false) -> Bool {
+func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool, foldChildren: Bool, stringOnly: Bool = false) -> Bool {
     switch result {
     case .nodes(let contexts):
         if contexts.isEmpty { return false }
@@ -23,7 +23,7 @@ func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool
         }
         for (i, ctx) in contexts.enumerated() {
             if i > 0 { print("") }
-            renderNodeContext(ctx, showProperties: showProperties, showChildren: showChildren)
+            renderNodeContext(ctx, showProperties: showProperties, showChildren: showChildren, foldChildren: foldChildren)
         }
         if contexts.count > 1 {
             print("\n\(contexts.count) results.")
@@ -80,7 +80,7 @@ func rawString(_ value: IORegValue) -> String {
 
 // MARK: - Node identity block
 
-private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChildren: Bool) {
+private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChildren: Bool, foldChildren: Bool) {
     let idStr = String(format: "0x%x", ctx.node.id)
     print("\(ctx.node.name) <\(ctx.node.ioClass)> [\(idStr)]")
     print("  \(ctx.breadcrumbString)")
@@ -111,11 +111,26 @@ private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChi
             print("  Children: (none)")
         } else {
             print("  Children (\(children.count)):")
-            for (i, child) in children.enumerated() {
-                let deeper = child.children.isEmpty ? "" : "  (\(child.children.count) children)"
-                let paddedName = child.name.padding(toLength: 40, withPad: " ", startingAt: 0)
-                print(String(format: "  %3d  %@  <%@>%@", i + 1, paddedName, child.ioClass, deeper))
+            if foldChildren {
+                for (i, child) in children.enumerated() {
+                    let deeper = child.children.isEmpty ? "" : "  (\(child.children.count) children)"
+                    let paddedName = child.name.padding(toLength: 40, withPad: " ", startingAt: 0)
+                    print(String(format: "  %3d  %@  <%@>%@", i + 1, paddedName, child.ioClass, deeper))
+                }
+            } else {
+                renderChildTree(children, indent: 4)
             }
+        }
+    }
+}
+
+private func renderChildTree(_ nodes: [IORegNode], indent: Int) {
+    let pad = String(repeating: " ", count: indent)
+    for node in nodes {
+        let idStr = String(format: "0x%x", node.id)
+        print("\(pad)\(node.name) <\(node.ioClass)> [\(idStr)]")
+        if !node.children.isEmpty {
+            renderChildTree(node.children, indent: indent + 2)
         }
     }
 }

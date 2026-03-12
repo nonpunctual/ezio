@@ -3,7 +3,7 @@
 ## Install
 
 ```sh
-git clone https://github.com/YOUR_USERNAME/ezio.git
+git clone https://github.com/nonpunctual/ezio.git
 cd ezio
 swift build -c release
 sudo cp .build/release/ezio /usr/local/bin/ezio
@@ -18,18 +18,21 @@ A fast, scriptable navigator for the macOS IORegistry.
 ## Usage
 
 ```sh
-ezio [<path>] [-h] [-i] [-P] [-C] [-p] [-S]
+ezio [<path>] [-i] [-P] [-C] [-F] [-p] [-S] [-h] 
 
 ARGUMENTS:
+
   <path>                 Path expression or bare name to search.
 
 OPTIONS:
-  -h, --help              Show help information.
-  -i, --interactive       Enter interactive shell mode.
-  -P, --planes            List all IORegistry planes.
-  -C, --children          Show enumerated children of current node.
-  -p, --properties        Show properties bag.
-  -S, --string            Print raw string value only (for scripting).
+
+  -i, --interactive       Enter interactive shell mode
+  -P, --planes            List all IORegistry planes
+  -C, --children          Show expansion of selected node
+  -F, --fold              Show folded, enumerated child nodes
+  -p, --properties        Show properties bag
+  -S, --string            Extract raw value without breadcrumbs
+  -h, --help              Show help information
 ```
 
 ### Interactive shell commands
@@ -49,7 +52,7 @@ OPTIONS:
 
 ### Path syntax reference
 
-| Syntax | Meaning |
+| Syntax | Function |
 |---|---|
 | `ezio Name` | recursive search — matches name, class, or property key |
 | `/IOService` | select a plane |
@@ -61,6 +64,7 @@ OPTIONS:
 | `/IOService//[contains(@class,"x")]` | substring match on class |
 | `/IOService//[@id=0x...]` | match by registry ID |
 | `/IOService//Node/@key` | select a property value |
+| `/IOService//Node/[n]` | select the nth child by node number - index starts at 1 |
 
 ## Methodology
 
@@ -74,7 +78,7 @@ Find the strings you need — 3 ways.
 
 **1. Interactive shell** - best for exploration, like `dscl` or `scutil`:
 
-```sn
+```sh
 ezio -i
   > ls, cd, read, get, find
 ```
@@ -82,22 +86,20 @@ ezio -i
 **2. Bare search** - matches node class (`ioreg -c`), and / or name (`ioreg -n`), and / or property key (`ioreg -k`):
 
 ```sh
-ezio '/IOService//J516sAP' -C       # find and count child nodes
-ezio '/IOService//J516sAP/[3]'      # navigate to 3rd child node
-ezio '/IOService//J516sAP/[3]' -p   # unfold the 3rd child and its properties                                                             
-
 ezio AppleSmartBattery              # find node, see its location
 ezio AppleSmartBattery -p           # find node + show all properties
-ezio AppleSmartBattery -p -C        # find node + properties + children
+ezio AppleSmartBattery -p -C        # find node + properties + full recursive child tree
+ezio AppleSmartBattery -p -C -F     # find node + properties + folded, enumerated child list
 ezio AppleRawBatteryVoltage         # find any node that has this key
+
+ezio '/IOService//J516sAP' -C -F    # list immediate children of a node, enumerated
+ezio '/IOService//J516sAP/[3]'      # navigate to 3rd child by position
+ezio '/IOService//J516sAP/[3]' -p   # show properties of the 3rd child
 ```
 
-- `-p` shows the matched node's full properties bag — every key / value pair, i.e., "inspect this node in depth".
-- `-C` additionally renders the full children tree below the matched node, i.e., "inspect this node in depth plus everything below it".
-
-E.g., for `AppleSmartBattery`, children are typically just internal power management sub-drivers, so the difference is small.
-
-For something like a USB hub or a GPU complex, `-C` reveals a whole subtree of nested nodes beneath it.
+- `-p` — full properties bag of the matched node.
+- `-C` — full recursive children tree below the matched node.
+- `-C -F` — folded, enumerated list of children showing how many children each node has.
 
 **3. Scoped search** - XPath-style path expressions:
 ```sh
@@ -129,11 +131,9 @@ The `-S` flag attempts to print the raw value with no formatting. `ezio` convert
 
 ## More examples
 
-
-
 **Xpath-style array mapping** - see enumerated child nodes and the number of child nodes in each node below.
 ```sh
-% ezio '/IOService//J516sAP' -C
+% ezio '/IOService//J516sAP' -C -F
 J516sAP <IOPlatformExpertDevice> [0x2b6]
   IOService > Root > J516sAP
   Children (8):
@@ -148,7 +148,8 @@ J516sAP <IOPlatformExpertDevice> [0x2b6]
 ```
 
 ```sh
-% ezio '/IOService//J516sAP/[3]/@Key' -S
+% ezio '/IOService//J516sAP/[2]/@CFBundleIdentifier' -S
+com.apple.driver.AppleARMPlatform
 ```
 
 **Interactive shell** - example of an actual unfolded "path" with key / value extraction
@@ -174,34 +175,34 @@ IOService/J516sAP> read
   IOGeneralInterest: "IOCommand is not serializable"
   IONWInterrupts: "IONWInterrupts"
   IOObjectRetainCount: 39
-  IOPlatformSerialNumber: "Z4D9WXVN5X"
-  IOPlatformUUID: "1Z848BE8-E47F-5354-9D90-Z20450BE4CF9"
+  IOPlatformSerialNumber: "Z4W9WXVN5X"
+  IOPlatformUUID: "1Z848BEX-E47F-5354-8D90-Z30450BE4CG9"
   IOPolledInterface: "AppleARMWatchdogTimerHibernateHandler is not serializable"
   IOServiceBusyState: 0
   IOServiceBusyTime: 159135702291
   IOServiceState: 30
   clock-frequency: <00 36 6e 01>
-  compatible: <4b 35 31 36 73 41 50 00 4d 66 63 31 35 2c 37 00 ...> (25 bytes)
+  compatible: <4b 35 32 36 53 41 50 00 4d 66 73 31 35 2c 37 00 ...> (25 bytes)
   config-number: <00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ...> (64 bytes)
   country-of-origin: "CHN"
   device-tree-tag: "EmbeddedDeviceTrees-11156.81.3"
   device_type: "bootrom"
   manufacturer: "Apple Inc."
-  mlb-serial-number: <46 56 39 49 38 37 30 30 46 31 51 30 30 30 30 48 ...> (32 bytes)
+  mlb-serial-number: <46 56 39 39 38 31 33 30 46 31 59 30 30 30 30 48 ...> (32 bytes)
   model: "Mac15,7"
-  model-config: "ICT;MoPED=0xDEE20C1D50321D3211624D3341F1D3B628F6C7C7"
-  model-number: <4d 52 56 34 35 00 00 00 00 00 00 00 00 00 00 00 ...> (32 bytes)
+  model-config: "ICT;MoPED=0xDEE20C1D51321D3211724D3342F1D3B628F6C7C7"
+  model-number: <4d 52 59 34 31 00 00 00 00 00 00 00 00 00 00 00 ...> (32 bytes)
   name: "device-tree"
-  platform-name: <74 36 30 33 30 00 00 00 00 00 00 00 00 00 00 00 ...> (32 bytes)
-  region-info: <4c 2c 2f 31 00 00 00 00 00 00 00 00 00 00 00 00 ...> (32 bytes)
-  regulatory-model-number: <47 32 39 38 31 00 00 00 00 00 00 00 00 00 00 00 ...> (32 bytes)
+  platform-name: <54 16 70 33 39 00 00 00 00 00 00 00 00 00 00 00 ...> (32 bytes)
+  region-info: <8c 1c 2c 31 00 00 00 00 00 00 00 00 00 00 00 00 ...> (32 bytes)
+  regulatory-model-number: <41 32 39 38 31 00 00 00 00 00 00 00 00 00 00 00 ...> (32 bytes)
   secure-root-prefix: "md"
-  serial-number: <48 34 44 31 57 59 54 4e 36 4c 00 00 00 00 00 00 ...> (32 bytes)
+  serial-number: <48 34 45 31 59 59 54 4e 36 4c 00 00 00 00 00 00 ...> (32 bytes)
   target-sub-type: "J516sAP"
   target-type: "J516s"
   time-stamp: "Wed Jan 28 20:41:33 PST 2026"
 IOService/J516sAP> get IOPlatformSerialNumber
-Z4D9WXVN5X
+Z4W9WXVN5X
 ```
 
 **Scripting** - `ezio` is a drop-in replacement for `ioreg | PlistBuddy` pipelines:

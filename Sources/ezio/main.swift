@@ -66,6 +66,9 @@ struct Ezio: ParsableCommand {
     @Flag(name: [.customShort("S"), .customLong("string")], help: "Print raw string value only (for scripting).")
     var stringOnly: Bool = false
 
+    @Flag(name: [.customShort("F"), .customLong("fold")], help: "Fold children — show flat numbered list instead of recursive tree (use with -C).")
+    var fold: Bool = false
+
     @Flag(name: [.customShort("P"), .customLong("planes")], help: "List all IORegistry planes.")
     var planes: Bool = false
 
@@ -139,7 +142,7 @@ struct Ezio: ParsableCommand {
         }
 
         // Render
-        let hadResults = renderResult(result, showProperties: properties, showChildren: children, stringOnly: stringOnly)
+        let hadResults = renderResult(result, showProperties: properties, showChildren: children, foldChildren: fold, stringOnly: stringOnly)
         if !hadResults {
             print("No matches found.")
             Darwin.exit(1)
