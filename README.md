@@ -27,7 +27,7 @@ OPTIONS:
   -h, --help              Show help information.
   -i, --interactive       Enter interactive shell mode.
   -P, --planes            List all IORegistry planes.
-  -C, --children          Show children tree.
+  -C, --children          Show enumerated children of current node.
   -p, --properties        Show properties bag.
   -S, --string            Print raw string value only (for scripting).
 ```
@@ -82,10 +82,14 @@ ezio -i
 **2. Bare search** - matches node class (`ioreg -c`), and / or name (`ioreg -n`), and / or property key (`ioreg -k`):
 
 ```sh
-ezio AppleSmartBattery          # find node, see its location
-ezio AppleSmartBattery -p       # find node + show all properties
-ezio AppleSmartBattery -p -C    # find node + properties + children
-ezio AppleRawBatteryVoltage     # find any node that has this key
+ezio '/IOService//J516sAP' -C       # find and count child nodes
+ezio '/IOService//J516sAP/[3]'      # navigate to 3rd child node
+ezio '/IOService//J516sAP/[3]' -p   # unfold the 3rd child and its properties                                                             
+
+ezio AppleSmartBattery              # find node, see its location
+ezio AppleSmartBattery -p           # find node + show all properties
+ezio AppleSmartBattery -p -C        # find node + properties + children
+ezio AppleRawBatteryVoltage         # find any node that has this key
 ```
 
 - `-p` shows the matched node's full properties bag — every key / value pair, i.e., "inspect this node in depth".
@@ -125,7 +129,29 @@ The `-S` flag attempts to print the raw value with no formatting. `ezio` convert
 
 ## More examples
 
-**Interactive shell**
+
+
+**Xpath-style array mapping** - see enumerated child nodes and the number of child nodes in each node below.
+```sh
+% ezio '/IOService//J516sAP' -C
+J516sAP <IOPlatformExpertDevice> [0x2b6]
+  IOService > Root > J516sAP
+  Children (8):
+    1  options                                   <IODTNVRAM>  (4 children)
+    2  AppleARMPE                                <AppleARMPE>  (42 children)
+    3  IOResources                               <IOResources>  (51 children)
+    4  IOUserResources                           <IOUserResources>  (1 children)
+    5  IOUserServer(com.apple.IOUserDockChannel  <IOUserServer>
+    6  IOUserServer(com.apple.driverkit.AppleUs  <IOUserServer>
+    7  IOUserServer(com.apple.bcmwlan-0x100000e  <IOUserServer>
+    8  IOUserServer(com.apple.IOUserBluetoothSe  <IOUserServer>
+```
+
+```sh
+% ezio '/IOService//J516sAP/[3]/@Key' -S
+```
+
+**Interactive shell** - example of an actual unfolded "path" with key / value extraction
 ```
 IORegistry> ls
     1  IOService

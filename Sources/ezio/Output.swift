@@ -111,18 +111,11 @@ private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChi
             print("  Children: (none)")
         } else {
             print("  Children (\(children.count)):")
-            renderChildTree(children, indent: 4)
-        }
-    }
-}
-
-private func renderChildTree(_ nodes: [IORegNode], indent: Int) {
-    let pad = String(repeating: " ", count: indent)
-    for node in nodes {
-        let idStr = String(format: "0x%x", node.id)
-        print("\(pad)\(node.name) <\(node.ioClass)> [\(idStr)]")
-        if !node.children.isEmpty {
-            renderChildTree(node.children, indent: indent + 2)
+            for (i, child) in children.enumerated() {
+                let deeper = child.children.isEmpty ? "" : "  (\(child.children.count) children)"
+                let paddedName = child.name.padding(toLength: 40, withPad: " ", startingAt: 0)
+                print(String(format: "  %3d  %@  <%@>%@", i + 1, paddedName, child.ioClass, deeper))
+            }
         }
     }
 }
