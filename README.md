@@ -137,27 +137,6 @@ The `-S` flag attempts to print the raw value with no formatting. `ezio` convert
 
 ## More examples
 
-**Xpath-style array mapping** - see enumerated child nodes and the number of child nodes in each node below.
-```sh
-% ezio '/IOService//J516sAP' -C -F
-J516sAP <IOPlatformExpertDevice> [0x2b6]
-  IOService > Root > J516sAP
-  Children (8):
-    1  options                                   <IODTNVRAM>  (4 children)
-    2  AppleARMPE                                <AppleARMPE>  (42 children)
-    3  IOResources                               <IOResources>  (51 children)
-    4  IOUserResources                           <IOUserResources>  (1 children)
-    5  IOUserServer(com.apple.IOUserDockChannel  <IOUserServer>
-    6  IOUserServer(com.apple.driverkit.AppleUs  <IOUserServer>
-    7  IOUserServer(com.apple.bcmwlan-0x100000e  <IOUserServer>
-    8  IOUserServer(com.apple.IOUserBluetoothSe  <IOUserServer>
-```
-
-```sh
-% ezio '/IOService//J516sAP/[2]/@CFBundleIdentifier' -S
-com.apple.driver.AppleARMPlatform
-```
-
 **Interactive shell** - example of an actual unfolded "path" with key / value extraction
 ```
 IORegistry> ls
@@ -209,6 +188,27 @@ IOService/J516sAP> read
   time-stamp: "Wed Jan 28 20:41:33 PST 2026"
 IOService/J516sAP> get IOPlatformSerialNumber
 Z4W9WXVN5X
+```
+
+**Xpath-style array mapping** - see enumerated child nodes and the number of child nodes in each node below.
+```sh
+% ezio '/IOService//J516sAP' -C -F
+J516sAP <IOPlatformExpertDevice> [0x2b6]
+  IOService > Root > J516sAP
+  Children (8):
+    1  options                                   <IODTNVRAM>  (4 children)
+    2  AppleARMPE                                <AppleARMPE>  (42 children)
+    3  IOResources                               <IOResources>  (51 children)
+    4  IOUserResources                           <IOUserResources>  (1 children)
+    5  IOUserServer(com.apple.IOUserDockChannel  <IOUserServer>
+    6  IOUserServer(com.apple.driverkit.AppleUs  <IOUserServer>
+    7  IOUserServer(com.apple.bcmwlan-0x100000e  <IOUserServer>
+    8  IOUserServer(com.apple.IOUserBluetoothSe  <IOUserServer>
+```
+
+```sh
+% ezio '/IOService//J516sAP/[2]/@CFBundleIdentifier' -S
+com.apple.driver.AppleARMPlatform
 ```
 
 **Scripting** - `ezio` is a drop-in replacement for `ioreg | PlistBuddy` pipelines:
