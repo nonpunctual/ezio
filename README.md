@@ -137,7 +137,7 @@ The `-S` flag attempts to print the raw value with no formatting. `ezio` convert
 
 ## More examples
 
-**Interactive shell** - example of an actual unfolded "path" with key / value extraction
+**Interactive shell** - example of an actual unfolded "path" with key / value extraction:
 ```
 IORegistry> ls
     1  IOService
@@ -190,7 +190,7 @@ IOService/J516sAP> get IOPlatformSerialNumber
 Z4W9WXVN5X
 ```
 
-**Xpath-style array mapping** - see enumerated child nodes and the number of child nodes in each node below.
+**Xpath-style array mapping** - see enumerated child nodes and the number of child nodes in each node below:
 ```sh
 % ezio '/IOService//J516sAP' -C -F
 J516sAP <IOPlatformExpertDevice> [0x2b6]
@@ -228,8 +228,6 @@ UUID="$(/usr/libexec/PlistBuddy -c 'print 0:IOPlatformUUID' /dev/stdin <<< "$(/u
 # After
 UUID="$(ezio '/IOService//[IOPlatformExpertDevice]/@IOPlatformUUID' -S)"
 ```
-
-
 
 ## License
 
