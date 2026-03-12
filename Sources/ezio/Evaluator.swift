@@ -14,12 +14,8 @@ func evaluate(
 
     // Implicit (bare name) search: discovery mode across name, class, and property keys
     if expr.isImplicitSearch, let term = expr.implicitTerm {
-        let results = collectImplicitMatches(
-            of: root,
-            plane: expr.plane,
-            breadcrumb: [root.name],
-            term: term
-        )
+        var results: [NodeContext] = []
+        collectImplicitMatches(of: root, plane: expr.plane, breadcrumb: [root.name], term: term, into: &results)
         return .nodes(results)
     }
 
@@ -46,11 +42,12 @@ private func collectImplicitMatches(
     of node: IORegNode,
     plane: String,
     breadcrumb: [String],
-    term: String
-) -> [NodeContext] {
-    var results: [NodeContext] = []
+    term: String,
+    into results: inout [NodeContext]
+) {
     for child in node.children {
-        let childBreadcrumb = breadcrumb + [child.name]
+        var childBreadcrumb = breadcrumb
+        childBreadcrumb.append(child.name)
         let nameOrClassMatch = child.name == term || child.ioClass == term
         let matchedKeys: [String] = child.properties[term] != nil ? [term] : []
 
@@ -62,14 +59,8 @@ private func collectImplicitMatches(
                 matchedPropertyKeys: matchedKeys
             ))
         }
-        results += collectImplicitMatches(
-            of: child,
-            plane: plane,
-            breadcrumb: childBreadcrumb,
-            term: term
-        )
+        collectImplicitMatches(of: child, plane: plane, breadcrumb: childBreadcrumb, term: term, into: &results)
     }
-    return results
 }
 
 // MARK: - Step application
@@ -77,8 +68,11 @@ private func collectImplicitMatches(
 private func applyStep(_ step: PathStep, to contexts: [NodeContext]) -> [NodeContext] {
     switch step {
     case .direct(let matcher, let predicates):
-        let nonPos = predicates.filter { if case .position = $0 { return false }; return true }
-        let posIndex = predicates.compactMap { if case .position(let n) = $0 { return n } else { return nil } }.first
+        var nonPos: [Predicate] = []
+        var posIndex: Int?
+        for p in predicates {
+            if case .position(let n) = p { posIndex = n } else { nonPos.append(p) }
+        }
         return contexts.flatMap { ctx -> [NodeContext] in
             var candidates = ctx.node.children
                 .filter { nodeMatches($0, matcher: matcher, predicates: nonPos) }
@@ -90,13 +84,16 @@ private func applyStep(_ step: PathStep, to contexts: [NodeContext]) -> [NodeCon
         }
     case .recursive(let matcher, let predicates):
         return contexts.flatMap { ctx in
+            var results: [NodeContext] = []
             collectDescendants(
                 of: ctx.node,
                 plane: ctx.plane,
                 breadcrumb: ctx.breadcrumb,
                 matcher: matcher,
-                predicates: predicates
+                predicates: predicates,
+                into: &results
             )
+            return results
         }
     }
 }
@@ -106,23 +103,17 @@ private func collectDescendants(
     plane: String,
     breadcrumb: [String],
     matcher: NodeMatcher,
-    predicates: [Predicate]
-) -> [NodeContext] {
-    var results: [NodeContext] = []
+    predicates: [Predicate],
+    into results: inout [NodeContext]
+) {
     for child in node.children {
-        let childBreadcrumb = breadcrumb + [child.name]
+        var childBreadcrumb = breadcrumb
+        childBreadcrumb.append(child.name)
         if nodeMatches(child, matcher: matcher, predicates: predicates) {
             results.append(NodeContext(node: child, plane: plane, breadcrumb: childBreadcrumb))
         }
-        results += collectDescendants(
-            of: child,
-            plane: plane,
-            breadcrumb: childBreadcrumb,
-            matcher: matcher,
-            predicates: predicates
-        )
+        collectDescendants(of: child, plane: plane, breadcrumb: childBreadcrumb, matcher: matcher, predicates: predicates, into: &results)
     }
-    return results
 }
 
 // MARK: - Matching

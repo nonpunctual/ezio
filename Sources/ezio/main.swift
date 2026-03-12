@@ -96,14 +96,6 @@ struct Ezio: ParsableCommand {
 
         // Planes listing
         if planes {
-            let planeList = [
-                ("IOService",    "main driver/service stack (default)"),
-                ("IOPower",      "power management relationships"),
-                ("IODeviceTree", "firmware/ACPI device tree"),
-                ("IOUSB",        "USB controller/device topology"),
-                ("IOAudio",      "audio device graph"),
-                ("IOFireWire",   "FireWire topology"),
-            ]
             for (name, desc) in planeList {
                 print("  \(name.padding(toLength: 16, withPad: " ", startingAt: 0))  \(desc)")
             }

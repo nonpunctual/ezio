@@ -4,31 +4,30 @@ import Foundation
 // MARK: - State
 
 private enum ShellLevel {
-    case registry                                                      // top level — no plane loaded
-    case plane(name: String, root: IORegNode, stack: [(String, IORegNode)])  // inside a plane
+    case registry
+    case plane(name: String, root: IORegNode, stack: [IORegNode])
 }
 
 private struct ShellState {
     var level: ShellLevel = .registry
 
-    var prompt: String {
+    var currentPath: String {
         switch level {
         case .registry:
-            return "IORegistry> "
+            return "IORegistry"
         case .plane(let name, _, let stack):
-            if stack.isEmpty { return "\(name)> " }
-            let path = stack.map { $0.0 }.joined(separator: "/")
-            return "\(name)/\(path)> "
+            return ([name] + stack.map { $0.name }).joined(separator: "/")
         }
     }
+
+    var prompt: String { "\(currentPath)> " }
 
     var currentNode: IORegNode? {
         switch level {
-        case .registry:               return nil
-        case .plane(_, let root, let stack): return stack.last?.1 ?? root
+        case .registry:                          return nil
+        case .plane(_, let root, let stack):     return stack.last ?? root
         }
     }
-
 }
 
 // MARK: - Entry point
@@ -61,8 +60,8 @@ func runInteractive(planeLoader: (String) throws -> IORegNode) {
                 for (i, p) in planeOrder.enumerated() {
                     print(String(format: "  %3d  %@", i + 1, p))
                 }
-            case .plane:
-                cmdLS(state.currentNode!)
+            case .plane(_, let root, let stack):
+                cmdLS(stack.last ?? root)
             }
 
         case "cd":
@@ -70,7 +69,7 @@ func runInteractive(planeLoader: (String) throws -> IORegNode) {
             cmdCD(target, state: &state, planeLoader: planeLoader)
 
         case "pwd":
-            print(state.prompt.replacingOccurrences(of: "> ", with: ""))
+            print(state.currentPath)
 
         case "info":
             guard let node = state.currentNode else { print("  (at IORegistry root)"); continue }
@@ -96,8 +95,8 @@ func runInteractive(planeLoader: (String) throws -> IORegNode) {
             switch state.level {
             case .registry:
                 print("  (cd into a plane first)")
-            case .plane(let name, _, let stack):
-                cmdFind(term, node: state.currentNode!, plane: name, breadcrumb: stack.map { $0.0 })
+            case .plane(let name, let root, let stack):
+                cmdFind(term, node: stack.last ?? root, plane: name, breadcrumb: stack.map { $0.name })
             }
 
         case "help", "?":
@@ -156,7 +155,7 @@ private func cmdCD(_ target: String, state: inout ShellState, planeLoader: (Stri
             }
             return
         }
-        let current = stack.last?.1 ?? root
+        let current = stack.last ?? root
         let children = current.children
         if let i = Int(target) {
             let idx = i - 1
@@ -164,18 +163,17 @@ private func cmdCD(_ target: String, state: inout ShellState, planeLoader: (Stri
                 print("index \(i) out of range (1–\(children.count))")
                 return
             }
-            let child = children[idx]
-            stack.append((child.name, child))
+            stack.append(children[idx])
             state.level = .plane(name: name, root: root, stack: stack)
             return
         }
         if let child = children.first(where: { $0.name == target }) {
-            stack.append((child.name, child))
+            stack.append(child)
             state.level = .plane(name: name, root: root, stack: stack)
             return
         }
         if let child = children.first(where: { $0.name.lowercased().hasPrefix(target.lowercased()) }) {
-            stack.append((child.name, child))
+            stack.append(child)
             state.level = .plane(name: name, root: root, stack: stack)
             return
         }
@@ -204,7 +202,7 @@ private func cmdInfo(_ node: IORegNode) {
 }
 
 private func cmdRead(_ node: IORegNode) {
-    let props = node.properties.sorted { $0.key < $1.key }
+    let props = node.properties.sortedByKey()
     if props.isEmpty { print("  (no properties)"); return }
     for (key, value) in props {
         print("  \(key): \(formatValue(value, indent: 4))")

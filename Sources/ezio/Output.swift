@@ -72,7 +72,7 @@ func rawString(_ value: IORegValue) -> String {
         return bytes.map { String(format: "%02x", $0) }.joined(separator: " ")
     case .array(let items): return items.map { rawString($0) }.joined(separator: "\n")
     case .dict(let pairs):
-        return pairs.sorted { $0.key < $1.key }
+        return pairs.sortedByKey()
             .map { "\($0.key)=\(rawString($0.value))" }
             .joined(separator: "\n")
     }
@@ -93,7 +93,7 @@ private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChi
     }
 
     if showProperties {
-        let props = ctx.node.properties.sorted { $0.key < $1.key }
+        let props = ctx.node.properties.sortedByKey()
         if props.isEmpty {
             print("  Properties: (none)")
         } else {
@@ -167,7 +167,7 @@ func formatValue(_ value: IORegValue, indent: Int) -> String {
         if pairs.isEmpty { return "{}" }
         let pad = String(repeating: " ", count: indent + 2)
         let closePad = String(repeating: " ", count: indent)
-        let inner = pairs.sorted { $0.key < $1.key }
+        let inner = pairs.sortedByKey()
             .map { "\(pad)\($0.key): \(formatValue($0.value, indent: indent + 2))" }
             .joined(separator: ",\n")
         return "{\n\(inner)\n\(closePad)}"

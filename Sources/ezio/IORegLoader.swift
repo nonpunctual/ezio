@@ -28,6 +28,7 @@ func loadPlaneData(plane: String, stdinData: Data?) throws -> Data {
     process.standardError = errPipe
     try process.run()
     let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+    _ = errPipe.fileHandleForReading.readDataToEndOfFile()  // drain to prevent pipe-buffer deadlock
     process.waitUntilExit()
     guard process.terminationStatus == 0 else {
         throw LoaderError.processFailure(exitCode: process.terminationStatus)

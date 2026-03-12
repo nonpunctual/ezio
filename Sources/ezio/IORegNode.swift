@@ -21,17 +21,16 @@ struct IORegNode {
 struct NodeContext {
     let node: IORegNode
     let plane: String
-    let breadcrumb: [String]          // node names from plane root down to this node
-    let matchedPropertyKeys: [String] // non-empty when matched via property key in implicit search
-
-    init(node: IORegNode, plane: String, breadcrumb: [String], matchedPropertyKeys: [String] = []) {
-        self.node = node
-        self.plane = plane
-        self.breadcrumb = breadcrumb
-        self.matchedPropertyKeys = matchedPropertyKeys
-    }
+    let breadcrumb: [String]
+    var matchedPropertyKeys: [String] = []  // non-empty when matched via property key in implicit search
 
     var breadcrumbString: String {
         ([plane] + breadcrumb).joined(separator: " > ")
+    }
+}
+
+extension Dictionary where Key == String {
+    func sortedByKey() -> [(key: Key, value: Value)] {
+        sorted { $0.key < $1.key }
     }
 }

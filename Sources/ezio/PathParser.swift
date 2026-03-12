@@ -1,6 +1,14 @@
 // PathParser.swift — Tokenize and parse XPath-style path expressions
 
-let planeOrder: [String] = ["IOService", "IOPower", "IODeviceTree", "IOUSB", "IOAudio", "IOFireWire"]
+let planeList: [(name: String, description: String)] = [
+    ("IOService",    "main driver/service stack (default)"),
+    ("IOPower",      "power management relationships"),
+    ("IODeviceTree", "firmware/ACPI device tree"),
+    ("IOUSB",        "USB controller/device topology"),
+    ("IOAudio",      "audio device graph"),
+    ("IOFireWire",   "FireWire topology"),
+]
+let planeOrder: [String] = planeList.map { $0.name }
 let knownPlanes: Set<String> = Set(planeOrder)
 
 // MARK: - AST types
@@ -284,6 +292,7 @@ struct PathParser {
         if atEnd {
             return PathExpr(plane: plane, steps: [], propertySelect: nil, isImplicitSearch: false)
         }
+        let recursive: Bool
         switch current {
         case .slash:
             advance()
@@ -294,21 +303,18 @@ struct PathParser {
                 advance()
                 return PathExpr(plane: plane, steps: [], propertySelect: p, isImplicitSearch: false)
             }
-            let step = try parseNameOrWildcard(recursive: false)
-            var steps = [step]
-            let (more, propSel) = try parseMoreSteps()
-            steps += more
-            return PathExpr(plane: plane, steps: steps, propertySelect: propSel, isImplicitSearch: false)
+            recursive = false
         case .doubleSlash:
             advance()
-            let step = try parseNameOrWildcard(recursive: true)
-            var steps = [step]
-            let (more, propSel) = try parseMoreSteps()
-            steps += more
-            return PathExpr(plane: plane, steps: steps, propertySelect: propSel, isImplicitSearch: false)
+            recursive = true
         default:
             return PathExpr(plane: plane, steps: [], propertySelect: nil, isImplicitSearch: false)
         }
+        let step = try parseNameOrWildcard(recursive: recursive)
+        var steps = [step]
+        let (more, propSel) = try parseMoreSteps()
+        steps += more
+        return PathExpr(plane: plane, steps: steps, propertySelect: propSel, isImplicitSearch: false)
     }
 
     // Parse additional /step or //step sequences after the first step
@@ -409,13 +415,11 @@ struct PathParser {
                     throw PathError.invalidPredicate("@id requires =")
                 }
                 advance()
-                if case .hexNumber(let v)? = current { advance(); return .idEquals(v) }
-                if case .identifier(let s)? = current,
-                   s.lowercased().hasPrefix("0x"),
-                   let v = UInt64(s.dropFirst(2), radix: 16) {
-                    advance(); return .idEquals(v)
+                guard case .hexNumber(let v)? = current else {
+                    throw PathError.invalidPredicate("@id value must be a hex number, e.g. 0x100000300")
                 }
-                throw PathError.invalidPredicate("@id value must be a hex number, e.g. 0x100000300")
+                advance()
+                return .idEquals(v)
             default:
                 if case .equals? = current {
                     advance()

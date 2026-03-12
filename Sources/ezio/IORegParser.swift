@@ -46,15 +46,11 @@ private func parseNode(_ dict: [String: Any]) throws -> IORegNode {
         id = 0
     }
 
-    var properties: [String: IORegValue] = [:]
-    for (key, value) in dict where !metaKeys.contains(key) {
-        properties[key] = parseValue(value)
-    }
-
-    var children: [IORegNode] = []
-    if let childDicts = dict["IORegistryEntryChildren"] as? [[String: Any]] {
-        children = try childDicts.map { try parseNode($0) }
-    }
+    let properties = Dictionary(uniqueKeysWithValues:
+        dict.filter { !metaKeys.contains($0.key) }.map { ($0.key, parseValue($0.value)) }
+    )
+    let children: [IORegNode] = try (dict["IORegistryEntryChildren"] as? [[String: Any]] ?? [])
+        .map { try parseNode($0) }
 
     return IORegNode(
         name: name,
