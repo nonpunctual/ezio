@@ -17,7 +17,7 @@ A fast, scriptable navigator for the macOS IORegistry.
 
 ## Usage
 
-```
+```sh
 ezio [<path>] [-h] [-i] [-P] [-C] [-p] [-S]
 
 ARGUMENTS:
@@ -66,7 +66,7 @@ OPTIONS:
 
 The best way to use `ezio` is in a 2-phase workflow:
 
-**Discover --> Collect**
+**DISCOVER --> COLLECT**
 
 ### DISCOVER
 
@@ -178,7 +178,7 @@ IOService/J516sAP> get IOPlatformSerialNumber
 Z4D9WXVN5X
 ```
 
-**Scripting** - `ezio` is drop-in replacement for `ioreg | PlistBuddy` pipelines:
+**Scripting** - `ezio` is a drop-in replacement for `ioreg | PlistBuddy` pipelines:
 
 ```sh
 # Before
