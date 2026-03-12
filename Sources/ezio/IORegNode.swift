@@ -1,28 +1,28 @@
 // IORegNode.swift — Data model for the IORegistry tree
 
-indirect enum IORegValue {
+enum IORegValue {
     case bool(Bool)
     case int(Int64)
     case float(Double)
     case string(String)
     case data([UInt8])
-    case array([IORegValue])
-    case dict([String: IORegValue])
+    indirect case array([IORegValue])
+    indirect case dict([String: IORegValue])
 }
 
 struct IORegNode {
-    var name: String
-    var ioClass: String
-    var id: UInt64
-    var properties: [String: IORegValue]
-    var children: [IORegNode]
+    let name: String
+    let ioClass: String
+    let id: UInt64
+    let properties: [String: IORegValue]
+    let children: [IORegNode]
 }
 
 struct NodeContext {
-    var node: IORegNode
-    var plane: String
-    var breadcrumb: [String]          // node names from plane root down to this node
-    var matchedPropertyKeys: [String] // non-empty when matched via property key in implicit search
+    let node: IORegNode
+    let plane: String
+    let breadcrumb: [String]          // node names from plane root down to this node
+    let matchedPropertyKeys: [String] // non-empty when matched via property key in implicit search
 
     init(node: IORegNode, plane: String, breadcrumb: [String], matchedPropertyKeys: [String] = []) {
         self.node = node

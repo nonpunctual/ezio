@@ -78,19 +78,6 @@ func rawString(_ value: IORegValue) -> String {
     }
 }
 
-// MARK: - Overview (no args)
-
-func renderOverview(root: IORegNode, plane: String) {
-    let count = countNodes(root)
-    print("\(plane)  (\(count) nodes)")
-    print("")
-    for child in root.children {
-        renderTree(child, indent: 2, maxDepth: 2, currentDepth: 0)
-    }
-    print("")
-    print("Use 'ezio <name>' to search, or 'ezio /\(plane)//<name>' to navigate.")
-}
-
 // MARK: - Node identity block
 
 private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChildren: Bool) {
@@ -138,33 +125,6 @@ private func renderChildTree(_ nodes: [IORegNode], indent: Int) {
             renderChildTree(node.children, indent: indent + 2)
         }
     }
-}
-
-// MARK: - Tree rendering (overview)
-
-private func renderTree(_ node: IORegNode, indent: Int, maxDepth: Int, currentDepth: Int) {
-    let pad = String(repeating: " ", count: indent)
-    let idStr = String(format: "0x%x", node.id)
-    print("\(pad)\(node.name) <\(node.ioClass)> [\(idStr)]")
-
-    guard currentDepth < maxDepth else {
-        if !node.children.isEmpty {
-            print("\(pad)  ... (\(node.children.count) children)")
-        }
-        return
-    }
-
-    let shown = min(node.children.count, 5)
-    for i in 0..<shown {
-        renderTree(node.children[i], indent: indent + 2, maxDepth: maxDepth, currentDepth: currentDepth + 1)
-    }
-    if node.children.count > 5 {
-        print("\(pad)  ... (\(node.children.count - 5) more)")
-    }
-}
-
-private func countNodes(_ node: IORegNode) -> Int {
-    1 + node.children.reduce(0) { $0 + countNodes($1) }
 }
 
 // MARK: - Value formatting

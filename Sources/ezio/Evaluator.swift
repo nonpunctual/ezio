@@ -52,7 +52,7 @@ private func collectImplicitMatches(
     for child in node.children {
         let childBreadcrumb = breadcrumb + [child.name]
         let nameOrClassMatch = child.name == term || child.ioClass == term
-        let matchedKeys = child.properties.keys.filter { $0 == term }.sorted()
+        let matchedKeys: [String] = child.properties[term] != nil ? [term] : []
 
         if nameOrClassMatch || !matchedKeys.isEmpty {
             results.append(NodeContext(

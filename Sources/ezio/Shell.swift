@@ -29,10 +29,6 @@ private struct ShellState {
         }
     }
 
-    var currentPlane: String? {
-        if case .plane(let name, _, _) = level { return name }
-        return nil
-    }
 }
 
 // MARK: - Entry point
@@ -65,7 +61,7 @@ func runInteractive(planeLoader: (String) throws -> IORegNode) {
                 for (i, p) in planeOrder.enumerated() {
                     print(String(format: "  %3d  %@", i + 1, p))
                 }
-            case .plane(_, _, _):
+            case .plane:
                 cmdLS(state.currentNode!)
             }
 
