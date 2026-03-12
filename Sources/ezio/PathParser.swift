@@ -30,6 +30,7 @@ enum Predicate {
     case nameContains(String)
     case propertyExists(String)
     case propertyEquals(String, String)
+    case position(Int)  // [n] — select nth child (1-based)
 }
 
 // MARK: - Errors
@@ -423,10 +424,11 @@ struct PathParser {
                 return .propertyExists(attr)
             }
 
-        case .identifier(let className):
-            // [ClassName] shorthand — bare name in brackets means class match
+        case .identifier(let s):
             advance()
-            return .classEquals(className)
+            if let n = Int(s), n >= 1 { return .position(n) }
+            // [ClassName] shorthand — bare name in brackets means class match
+            return .classEquals(s)
 
         default:
             throw PathError.invalidPredicate("expected @attr, contains(), or a class name")

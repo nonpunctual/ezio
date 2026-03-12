@@ -77,10 +77,16 @@ private func collectImplicitMatches(
 private func applyStep(_ step: PathStep, to contexts: [NodeContext]) -> [NodeContext] {
     switch step {
     case .direct(let matcher, let predicates):
-        return contexts.flatMap { ctx in
-            ctx.node.children
-                .filter { nodeMatches($0, matcher: matcher, predicates: predicates) }
+        let nonPos = predicates.filter { if case .position = $0 { return false }; return true }
+        let posIndex = predicates.compactMap { if case .position(let n) = $0 { return n } else { return nil } }.first
+        return contexts.flatMap { ctx -> [NodeContext] in
+            var candidates = ctx.node.children
+                .filter { nodeMatches($0, matcher: matcher, predicates: nonPos) }
                 .map { NodeContext(node: $0, plane: ctx.plane, breadcrumb: ctx.breadcrumb + [$0.name]) }
+            if let n = posIndex {
+                candidates = (n >= 1 && n <= candidates.count) ? [candidates[n - 1]] : []
+            }
+            return candidates
         }
     case .recursive(let matcher, let predicates):
         return contexts.flatMap { ctx in
@@ -141,6 +147,8 @@ private func satisfiesPredicate(_ pred: Predicate, node: IORegNode) -> Bool {
     case .propertyEquals(let k, let v):
         guard let propVal = node.properties[k] else { return false }
         return simpleString(propVal) == v
+    case .position:
+        return true  // handled at step level, not per-node
     }
 }
 
