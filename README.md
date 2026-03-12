@@ -1,5 +1,15 @@
 # ezio
 
+## Description
+
+A fast, scriptable navigator for the macOS IORegistry.
+
+## Why?
+
+`ioreg` is the traditional CLI for the macOS IORegistry. It's powerful, but not easy to use. The purpose of `ezio` is to make searching for key / values and strings that Mac admins may want to extract from `ioreg` faster and easier.
+
+Text parsing CLI binaries like `awk`, `grep`, or `sed` are often used to hack `ioreg -l` output, which generates unnecessary processing and can make pipes or logic in scripts brittle and difficult to maintain.
+
 ## Install
 
 ```sh
@@ -10,10 +20,6 @@ sudo cp .build/release/ezio /usr/local/bin/ezio
 ```
 
 Requires macOS 13+ and Swift 5.9+.
-
-## Description
-
-A fast, scriptable navigator for the macOS IORegistry.
 
 ## Usage
 
