@@ -193,8 +193,9 @@ private func cmdLS(_ node: IORegNode) {
     if node.children.isEmpty { print("  (no children)"); return }
     for (i, child) in node.children.enumerated() {
         let childCount = child.children.isEmpty ? "" : "  (\(child.children.count) children)"
-        print(String(format: "  %3d  %-40s <%@>%@",
-            i + 1, child.name, child.ioClass, childCount))
+        let paddedName = child.name.padding(toLength: 40, withPad: " ", startingAt: 0)
+        print(String(format: "  %3d  %@  <%@>%@",
+            i + 1, paddedName, child.ioClass, childCount))
     }
 }
 
