@@ -21,21 +21,25 @@ struct Ezio: ParsableCommand {
 
               2. Bare search - matches node class (ioreg -c), and / or name (ioreg -n), and / or property key (ioreg -k):
 
-                  ezio AppleSmartBattery              find node, see its location
-                  ezio AppleSmartBattery -p           find node + show all properties
-                  ezio AppleSmartBattery -p -C        find node + properties + full recursive child tree
-                  ezio AppleSmartBattery -p -C -F     find node + properties + folded, enumerated child list
-                  ezio AppleRawBatteryVoltage         find any node that has this key
+                  ezio AppleSmartBattery              # find node, see its location
+                  ezio AppleSmartBattery -p           # find node + show all properties
+                  ezio AppleSmartBattery -p -C        # find node + properties + full recursive child tree
+                  ezio AppleSmartBattery -p -C -F     # find node + properties + folded, enumerated child list
+                  ezio AppleRawBatteryVoltage         # find any node that has this key
+
+                  -p    — full properties bag of the matched node.
+                  -C    — full recursive children tree below the matched node.
+                  -C -F — folded, enumerated list of children showing how many children each node has.
 
               3. Scoped search - XPath-style path expressions:
 
-                  ezio '/IOService//[AppleSmartBattery]'           by class
-                  ezio '/IOService//[contains(@name,"Battery")]'   substring on name
-                  ezio '/IOService//[contains(@class,"CPU")]'      substring on class
-                  ezio '/IOService//[@id=0x100000300]'             by registry ID
-                  ezio '/IOService//J516sAP' -C -F                 list immediate children of a node, enumerated
-                  ezio '/IOService//J516sAP/[3]'                   navigate to 3rd child by position
-                  ezio '/IOService//J516sAP/[3]' -p                show properties of the 3rd child
+                  ezio '/IOService//[AppleSmartBattery]'          # by class
+                  ezio '/IOService//[contains(@name,"Battery")]'  # substring on name
+                  ezio '/IOService//[contains(@class,"CPU")]'     # substring on class
+                  ezio '/IOService//[@id=0x100000300]'            # by registry ID
+                  ezio '/IOService//J516sAP' -C -F                # list immediate children of a node, enumerated
+                  ezio '/IOService//J516sAP/[3]'                  # navigate to 3rd child by position
+                  ezio '/IOService//J516sAP/[3]' -p               # show properties of the 3rd child
 
             COLLECT: Once a node and target key / value is discovered, extract it.
 
