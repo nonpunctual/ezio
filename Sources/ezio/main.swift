@@ -38,7 +38,7 @@ struct Ezio: ParsableCommand {
                   ezio '/IOService//[contains(@class,"CPU")]'      substring on class
                   ezio '/IOService//[@id=0x100000300]'             by registry ID
 
-            COLLECT - Once a node and target key / value is discovered, extract it:
+            COLLECT: Once a node and target key / value is discovered, extract it:
 
               1. Parsing / Scripting:
 
