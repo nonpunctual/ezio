@@ -1,16 +1,5 @@
 // PathParser.swift — Tokenize and parse XPath-style path expressions
 
-let planeList: [(name: String, description: String)] = [
-    ("IOService",    "main driver/service stack (default)"),
-    ("IOPower",      "power management relationships"),
-    ("IODeviceTree", "firmware/ACPI device tree"),
-    ("IOUSB",        "USB controller/device topology"),
-    ("IOAudio",      "audio device graph"),
-    ("IOFireWire",   "FireWire topology"),
-]
-let planeOrder: [String] = planeList.map { $0.name }
-let knownPlanes: Set<String> = Set(planeOrder)
-
 // MARK: - AST types
 
 struct PathExpr {

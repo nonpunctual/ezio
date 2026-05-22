@@ -1,6 +1,21 @@
 // IORegLoader.swift — Spawn ioreg or read stdin
 import Foundation
 
+// MARK: - Plane registry
+
+let planeList: [(name: String, description: String)] = [
+    ("IOService",    "main driver/service stack (default)"),
+    ("IOPower",      "power management relationships"),
+    ("IODeviceTree", "firmware/ACPI device tree"),
+    ("IOUSB",        "USB controller/device topology"),
+    ("IOAudio",      "audio device graph"),
+    ("IOFireWire",   "FireWire topology"),
+]
+let planeOrder: [String] = planeList.map { $0.name }
+let knownPlanes: Set<String> = Set(planeOrder)
+
+// MARK: - Errors
+
 enum LoaderError: Error, CustomStringConvertible {
     case processFailure(exitCode: Int32)
     case noData
@@ -27,8 +42,9 @@ func loadPlaneData(plane: String, stdinData: Data?) throws -> Data {
     process.standardOutput = outPipe
     process.standardError = errPipe
     try process.run()
+    let stderrDrain = DispatchQueue(label: "ezio.stderr")
+    stderrDrain.async { _ = errPipe.fileHandleForReading.readDataToEndOfFile() }
     let data = outPipe.fileHandleForReading.readDataToEndOfFile()
-    _ = errPipe.fileHandleForReading.readDataToEndOfFile()  // drain to prevent pipe-buffer deadlock
     process.waitUntilExit()
     guard process.terminationStatus == 0 else {
         throw LoaderError.processFailure(exitCode: process.terminationStatus)

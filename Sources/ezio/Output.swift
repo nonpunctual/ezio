@@ -19,7 +19,9 @@ func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool
                 }
             }
             if printed { return true }
-            // No property keys matched (name/class match) — fall through to normal rendering
+            // -S requires a property key match; name/class matches have no scalar to extract
+            fputs("error: -S requires a property key match or /@key selector\n", stderr)
+            return false
         }
         for (i, ctx) in contexts.enumerated() {
             if i > 0 { print("") }
