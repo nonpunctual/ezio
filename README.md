@@ -37,7 +37,7 @@ OPTIONS:
   -C, --children          Show expansion of selected node
   -F, --fold              Show folded, enumerated child nodes
   -p, --properties        Show properties bag
-  -S, --string            Extract raw value without breadcrumbs
+  -S, --string            Extract raw value without breadcrumbs (requires a property key match)
   -h, --help              Show help information
 ```
 
@@ -133,7 +133,7 @@ ezio '/IOService//J516sAP/[3]' -p               # show properties of the 3rd chi
 MacBook Pro (16-inch, Nov 2023)
 ```
 
-The `-S` flag attempts to print the raw value with no formatting. `ezio` converts data values stored in the IORegistry as raw bytes to plain text.
+The `-S` flag prints the raw value with no formatting. It requires a property key match - either a `/@key` selector in the path, or a bare search term that matches on a property key. Using `-S` on a name/class-only match is an error. `ezio` converts data values stored in the IORegistry as raw bytes to plain text.
 
 ## More examples
 
