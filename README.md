@@ -4,7 +4,7 @@
 
 A fast, scriptable navigator for the macOS IORegistry.
 
-## Why?
+## Why
 
 `ioreg` is the traditional CLI for the macOS IORegistry. It's powerful, but not easy to use. The purpose of `ezio` is to make searching for key / values and strings that Mac admins may want to extract from `ioreg` faster and easier.
 
