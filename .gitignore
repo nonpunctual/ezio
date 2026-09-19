@@ -16,3 +16,7 @@ xcuserdata/
 # signing material -- must never be committed
 *.p12
 *.cer
+
+# Claude Code project files -- local only, never committed
+CLAUDE.md
+.claude/
