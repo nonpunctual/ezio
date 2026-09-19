@@ -7,3 +7,12 @@
 xcuserdata/
 *.xcodeproj/
 *.xcworkspace/
+
+# packaging output -- built locally, never committed; distributed via GitHub Releases
+*.pkg
+*.dmg
+*.zip
+
+# signing material -- must never be committed
+*.p12
+*.cer

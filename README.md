@@ -12,6 +12,16 @@ Text parsing CLI binaries like `awk`, `grep`, or `sed` are often used to hack `i
 
 ## Install
 
+**Signed installer package** - download the latest `.pkg` from [Releases](https://github.com/nonpunctual/ezio/releases/latest), then double-click it, or install from the terminal:
+
+```sh
+sudo installer -pkg ~/Downloads/ezio-*.pkg -target /
+```
+
+Installs `ezio` to `/usr/local/bin/ezio`. Signed with a Developer ID and notarized by Apple.
+
+**Build from source:**
+
 ```sh
 git clone https://github.com/nonpunctual/ezio.git
 cd ezio

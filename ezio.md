@@ -1,6 +1,6 @@
 ## Planes
 
-The complete list of IORegistry planes, defined as constants in `IOKitKeys.h`:
+IORegistry planes, defined as constants in `IOKitKeys.h`:
 
 ```
 IORegistry
@@ -12,11 +12,13 @@ IORegistry
 └── IOUSB           ← USB controller/device topology
 ```
 
-6 planes total. On modern Apple Silicon Macs, `IOFireWire` and `IOAudio` will likely be empty or sparse. `IOService` is the default plane used by `ioreg -a -l`.
+- 6 planes total. On modern Apple Silicon Macs
+- IOFireWire` and `IOAudio` will likely be empty
+- `IOService` is the default plane used by `ioreg -a -l`
 
 ## Node Attribute Types
 
-Each node in the IORegistry has the following distinct attribute types. Every node line in raw ioreg output looks like:
+Each node in the IORegistry has the following attribute types & every node line in raw ioreg output looks like:
 
 ```
 +-o AppleARMPE  <class AppleARMPE, id 0x1000002bc, registered, matched, active, busy 0 (42292 ms), retain 49>
@@ -24,7 +26,7 @@ Each node in the IORegistry has the following distinct attribute types. Every no
      Name             Class            ID           State flags                  Busy state            Retain count
 ```
 
-So, the full taxonomy is:
+Full taxonomy:
 
 | Type | ioreg flag | Description |
 |---|---|---|
@@ -39,13 +41,21 @@ So, the full taxonomy is:
 | **Retain count** | — | Kernel reference count |
 | **Properties** | `-k`, `-l` | Key-value dictionary — the actual device data |
 
-**Properties** are the deepest layer — each node can have dozens of them, and their keys/values vary entirely by device class. That is the layer `ezio` currently searches.
+**Properties** are the deepest layer: 
 
-The full list of unique property keys found in the IOService plane on this machine (3,746 total) is in `ioservice-keys.txt`. Note: this list is machine-specific — different hardware will produce different keys.
+- each node can have many of them
+- keys/values vary entirely by device class
+- This is the layer `ezio` currently searches.
+
+The full list of unique property keys found in the IOService plane on this computer (3,746 total) is in `ioservice-keys.txt`. 
+
+- This is specific to this computer
+- `ioreg` output is not heterogeneous from Mac model to model
+  - i.e., different hardware will produce different keys
 
 ## Subsystem Taxonomy
 
-23 identifiable subsystems, grouped by key naming conventions. A large long tail (~1,500+ keys) are highly specific one-off properties or internal Apple tunables with no clear user-facing grouping.
+23 identifiable subsystems, grouped by key naming conventions. ~1,500+ keys are highly-specific, one-off properties or internal Apple references with no clear user-facing grouping.
 
 | Subsystem | Key patterns | Notes |
 |---|---|---|
@@ -73,9 +83,9 @@ The full list of unique property keys found in the IOService plane on this machi
 | **Panic / Debug** | `panic-*`, `AppleDiagnosticData`, `IOKitDiagnostics` | |
 | **IOKit Meta** | `IOObject*`, `IORegistry*`, `IOProvider*`, `IOClass`, `IOServiceState` | Framework internals |
 
-## Key Structural Insight
+## Structure
 
-Name and Class are not separate levels — they're both attributes of the same node. The hierarchy is:
+Name and Class are not separate levels. They're both attributes of the same node. The hierarchy is:
 
 ```
 IORegistry
@@ -87,18 +97,15 @@ IORegistry
 
 Class is a filter across the tree, not a level within it. When you say "go into AppleARMCPU"
 you're not descending a level — you're filtering to show only nodes whose class matches.
+
 The result is a flat list of instances, each of which is already a full node with name, ID,
 and properties. Multiple instances of the same class can share the same name and are only
-distinguishable by their ID (e.g. 0x100000300, 0x1000002ff).
+distinguishable by their ID (e.g. 0x100000300, 0x1000002ff). So, the navigable levels in `ioreg` are really just two things:
 
-So the navigable levels in ioreg are really just two things:
+1. The tree structure: parent/child relationships between nodes
+2. The properties bag: key-value pairs hanging off each node
 
-1. The tree structure — parent/child relationships between nodes
-2. The properties bag — key-value pairs hanging off each node
-
-Class, name, and ID are all just ways to identify or filter nodes — not levels you descend through.
-
-The full hierarchy, confirmed:
+Class, name, and ID are all just ways to identify or filter nodes, not levels you descend through.
 
 ```
 IORegistry
@@ -113,7 +120,7 @@ IORegistry
                 └── ...
 ```
 
-The tree is nodes all the way down. The only thing that changes at the bottom of the tree is that leaf nodes have no children — just attributes and properties.
+The tree is nodes all the way down. The only thing that changes at the bottom of the tree is that leaf nodes have no children, just attributes and properties.
 
 The full node tree for all 6 planes (3,524 lines) is in `node-tree.txt`. Node counts per plane:
 
@@ -124,11 +131,13 @@ The full node tree for all 6 planes (3,524 lines) is in `node-tree.txt`. Node co
 - IOAudio: 1 node (empty)
 - IOFireWire: 1 node (empty)
 
-Notable observations:
-
-- Every plane roots through the same `Root <IORegistryEntry>` → `J516sAP <IOPlatformExpertDevice>` — confirming the same physical hardware viewed through different lenses
-- IOService has 2,320 nodes — nearly 5x more than IOPower (736), which makes sense since IOPower only tracks nodes that participate in power management
-- IODeviceTree's 454 nodes are the firmware-visible subset — a much flatter view of the same hardware
+- Every plane is the same:
+  - `Root <IORegistryEntry>` → `J516sAP <IOPlatformExpertDevice>`
+  - confirming the same physical hardware viewed through different lenses
+- IOService has 2,320 nodes
+  - nearly 5x more than IOPower (736) which makes sense since IOPower only tracks nodes that participate in power management
+- IODeviceTree's 454 nodes are the firmware-visible subset
+  - much flatter view of the same hardware
 
 ## Classes Per Plane
 
@@ -696,25 +705,25 @@ IORegistry
 
 ### Starting point
 
-After researching the full structure of IORegistry — planes, nodes, attributes, properties — the
-conclusion is that it's "nodes all the way down": every plane is a tree of nodes, each node has
-a name, class, ID, and a properties bag, and nodes recurse indefinitely. There is no other
-topographical structure or perspective that changes this model.
+THe full structure of IORegistry (planes, nodes, attributes, properties) = the "nodes all the way down".
 
-Given that, the goal for ezio is:
+Every plane is a tree of nodes, each node has a name, class, ID, and a properties bag, and nodes recurse indefinitely. There is no other
+topography, structure or perspective.
 
-- `ezio` with no arguments outputs a tree-style view of the 6 planes
-- A path syntax lets you navigate and search the node tree
+Given that, `ezio` should:
+
+- with no arguments output a tree-style view of the 6 planes
+- have a path syntax to navigate and search the node tree
 
 ### Why XPath-style
 
-The two most powerful XPath operators map almost perfectly onto the two things ioreg users
+The two most powerful XPath operators map almost perfectly onto the two things `ioreg` users
 actually want to do:
 
 - `/` — navigate a known path: `IOService/J516sAP/AppleARMPE`
 - `//` — search anywhere in the tree: `IOService//AppleARMCPU`
 
-The current `ezio <pattern>` is essentially `//` already — recursive search with no path
+The current `ezio <pattern>` is essentially `//` already: recursive search with no path
 context. Adding `/` gives you the ability to narrow scope.
 
 ### Design considerations
@@ -733,18 +742,18 @@ to pull a specific property value is elegant and composable.
 **The default plane.** If IOService is the default, `ezio //AppleARMCPU` could implicitly mean
 `IOService//AppleARMCPU`, keeping the common case short.
 
-The `//` recursive operator alone covers 80% of what people use grep+awk for today.
+The `//` recursive operator alone covers most of what people use `grep` + `awk` for today.
 
 ### On `//` and why ezio doesn't need it
 
 In XPath, `//` is useful when you already know the document structure well enough to say
-"start from this known landmark." But with ioreg, the whole problem is that nobody knows
-the structure — that's why the tool exists in the first place. Dropping into the middle
-with `//` assumes knowledge the user doesn't have yet.
+"start from this known landmark / node." With ioreg the whole problem is that nobody knows
+the structure. THat is the problem this tool solves. Dropping into the middle with `//` assumes 
+knowledge most users don't have yet.
 
-So in ezio, **all searches are implicitly `//` from root.** `ezio AppleARMCPU` always starts
+**All searches are implicitly `//` from root.** `ezio AppleARMCPU` always starts
 from the top of IOService and finds it wherever it lives. The `/` path syntax is still useful
-for drilling down once you've discovered something — but the default search mode is always
+for drilling down once you've discovered something but the default search mode is always
 full-tree from root.
 
 ### Mental model
