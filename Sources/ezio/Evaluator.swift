@@ -12,14 +12,22 @@ func evaluate(
     let root = try planeLoader(expr.plane)
     let rootCtx = NodeContext(node: root, plane: expr.plane, breadcrumb: [root.name])
 
-    // Implicit (bare name) search: discovery mode across name, class, and property keys
-    if expr.isImplicitSearch, let term = expr.implicitTerm {
-        var results: [NodeContext] = []
-        collectImplicitMatches(of: root, plane: expr.plane, breadcrumb: [root.name], term: term, into: &results)
-        return .nodes(results)
-    }
-
     var contexts: [NodeContext] = [rootCtx]
+
+    // Implicit (bare name) search: discovery mode across name, class, and property keys.
+    // Folded in as an ordinary first pass so trailing predicates/steps/propertySelect
+    // still apply to its results, instead of being silently discarded.
+    if expr.isImplicitSearch, let term = expr.implicitTerm {
+        let (nonPos, posIndex) = splitPosition(expr.implicitPredicates)
+        contexts = contexts.flatMap { ctx -> [NodeContext] in
+            var results: [NodeContext] = []
+            collectDescendants(of: ctx.node, plane: ctx.plane, breadcrumb: ctx.breadcrumb, matcher: .implicit(term), predicates: nonPos, into: &results)
+            if let n = posIndex {
+                results = (n >= 1 && n <= results.count) ? [results[n - 1]] : []
+            }
+            return results
+        }
+    }
 
     for step in expr.steps {
         contexts = applyStep(step, to: contexts)
@@ -36,63 +44,43 @@ func evaluate(
     return .nodes(contexts)
 }
 
-// MARK: - Implicit (discovery) search
-
-private func collectImplicitMatches(
-    of node: IORegNode,
-    plane: String,
-    breadcrumb: [String],
-    term: String,
-    into results: inout [NodeContext]
-) {
-    for child in node.children {
-        var childBreadcrumb = breadcrumb
-        childBreadcrumb.append(child.name)
-        let nameOrClassMatch = child.name == term || child.ioClass == term
-        let matchedKeys: [String] = child.properties[term] != nil ? [term] : []
-
-        if nameOrClassMatch || !matchedKeys.isEmpty {
-            results.append(NodeContext(
-                node: child,
-                plane: plane,
-                breadcrumb: childBreadcrumb,
-                matchedPropertyKeys: matchedKeys
-            ))
-        }
-        collectImplicitMatches(of: child, plane: plane, breadcrumb: childBreadcrumb, term: term, into: &results)
-    }
-}
-
 // MARK: - Step application
+
+// Splits [n] position predicates out from boolean node-test predicates.
+// Position selects the nth match by document order among a step's results
+// and cannot be evaluated per-node, so it is applied after matching.
+private func splitPosition(_ predicates: [Predicate]) -> (nonPosition: [Predicate], position: Int?) {
+    var nonPos: [Predicate] = []
+    var posIndex: Int?
+    for p in predicates {
+        if case .position(let n) = p { posIndex = n } else { nonPos.append(p) }
+    }
+    return (nonPos, posIndex)
+}
 
 private func applyStep(_ step: PathStep, to contexts: [NodeContext]) -> [NodeContext] {
     switch step {
     case .direct(let matcher, let predicates):
-        var nonPos: [Predicate] = []
-        var posIndex: Int?
-        for p in predicates {
-            if case .position(let n) = p { posIndex = n } else { nonPos.append(p) }
-        }
+        let (nonPos, posIndex) = splitPosition(predicates)
         return contexts.flatMap { ctx -> [NodeContext] in
-            var candidates = ctx.node.children
-                .filter { nodeMatches($0, matcher: matcher, predicates: nonPos) }
-                .map { NodeContext(node: $0, plane: ctx.plane, breadcrumb: ctx.breadcrumb + [$0.name]) }
+            var candidates: [NodeContext] = []
+            for child in ctx.node.children {
+                guard let keys = nodeMatches(child, matcher: matcher, predicates: nonPos) else { continue }
+                candidates.append(NodeContext(node: child, plane: ctx.plane, breadcrumb: ctx.breadcrumb + [child.name], matchedPropertyKeys: keys))
+            }
             if let n = posIndex {
                 candidates = (n >= 1 && n <= candidates.count) ? [candidates[n - 1]] : []
             }
             return candidates
         }
     case .recursive(let matcher, let predicates):
-        return contexts.flatMap { ctx in
+        let (nonPos, posIndex) = splitPosition(predicates)
+        return contexts.flatMap { ctx -> [NodeContext] in
             var results: [NodeContext] = []
-            collectDescendants(
-                of: ctx.node,
-                plane: ctx.plane,
-                breadcrumb: ctx.breadcrumb,
-                matcher: matcher,
-                predicates: predicates,
-                into: &results
-            )
+            collectDescendants(of: ctx.node, plane: ctx.plane, breadcrumb: ctx.breadcrumb, matcher: matcher, predicates: nonPos, into: &results)
+            if let n = posIndex {
+                results = (n >= 1 && n <= results.count) ? [results[n - 1]] : []
+            }
             return results
         }
     }
@@ -107,10 +95,9 @@ private func collectDescendants(
     into results: inout [NodeContext]
 ) {
     for child in node.children {
-        var childBreadcrumb = breadcrumb
-        childBreadcrumb.append(child.name)
-        if nodeMatches(child, matcher: matcher, predicates: predicates) {
-            results.append(NodeContext(node: child, plane: plane, breadcrumb: childBreadcrumb))
+        let childBreadcrumb = breadcrumb + [child.name]
+        if let keys = nodeMatches(child, matcher: matcher, predicates: predicates) {
+            results.append(NodeContext(node: child, plane: plane, breadcrumb: childBreadcrumb, matchedPropertyKeys: keys))
         }
         collectDescendants(of: child, plane: plane, breadcrumb: childBreadcrumb, matcher: matcher, predicates: predicates, into: &results)
     }
@@ -118,37 +105,38 @@ private func collectDescendants(
 
 // MARK: - Matching
 
-private func nodeMatches(_ node: IORegNode, matcher: NodeMatcher, predicates: [Predicate]) -> Bool {
-    let nameMatch: Bool
+// Returns the property keys that satisfied the match (possibly empty), or nil if no match.
+private func nodeMatches(_ node: IORegNode, matcher: NodeMatcher, predicates: [Predicate]) -> [String]? {
+    var matchedKeys: [String] = []
     switch matcher {
-    case .wildcard:       nameMatch = true
-    case .name(let n):    nameMatch = node.name == n
+    case .wildcard:
+        break
+    case .name(let n):
+        guard node.name == n else { return nil }
+    case .implicit(let term):
+        let (matched, keys) = discoveryMatch(node, term: term)
+        guard matched else { return nil }
+        matchedKeys += keys
     }
-    guard nameMatch else { return false }
-    return predicates.allSatisfy { satisfiesPredicate($0, node: node) }
+    for pred in predicates {
+        guard let keys = satisfiesPredicate(pred, node: node) else { return nil }
+        matchedKeys += keys
+    }
+    return matchedKeys
 }
 
-private func satisfiesPredicate(_ pred: Predicate, node: IORegNode) -> Bool {
+// Returns the property keys the predicate matched via (possibly empty), or nil if it failed.
+private func satisfiesPredicate(_ pred: Predicate, node: IORegNode) -> [String]? {
     switch pred {
-    case .classEquals(let s):     return node.ioClass == s
-    case .classContains(let s):   return node.ioClass.contains(s)
-    case .idEquals(let v):        return node.id == v
-    case .nameContains(let s):    return node.name.contains(s)
-    case .propertyExists(let k):  return node.properties[k] != nil
+    case .classEquals(let s):     return node.ioClass == s ? [] : nil
+    case .classContains(let s):   return node.ioClass.contains(s) ? [] : nil
+    case .idEquals(let v):        return node.id == v ? [] : nil
+    case .nameContains(let s):    return node.name.contains(s) ? [] : nil
+    case .propertyExists(let k):  return node.properties[k] != nil ? [k] : nil
     case .propertyEquals(let k, let v):
-        guard let propVal = node.properties[k] else { return false }
-        return simpleString(propVal) == v
+        guard let propVal = node.properties[k], rawString(propVal) == v else { return nil }
+        return [k]
     case .position:
-        return true  // handled at step level, not per-node
-    }
-}
-
-private func simpleString(_ val: IORegValue) -> String {
-    switch val {
-    case .bool(let b):   return b ? "true" : "false"
-    case .int(let i):    return "\(i)"
-    case .float(let f):  return "\(f)"
-    case .string(let s): return s
-    default:             return ""
+        return []  // handled at step level via splitPosition, not per-node
     }
 }

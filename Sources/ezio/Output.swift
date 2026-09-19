@@ -4,10 +4,16 @@ import Foundation
 
 // MARK: - Main render entry point
 
-func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool, foldChildren: Bool, stringOnly: Bool = false) -> Bool {
+enum RenderOutcome {
+    case rendered
+    case noMatches
+    case noScalar  // matches were found but -S has no property-key value to extract
+}
+
+func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool, foldChildren: Bool, stringOnly: Bool = false) -> RenderOutcome {
     switch result {
     case .nodes(let contexts):
-        if contexts.isEmpty { return false }
+        if contexts.isEmpty { return .noMatches }
         if stringOnly {
             var printed = false
             for ctx in contexts {
@@ -18,10 +24,7 @@ func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool
                     }
                 }
             }
-            if printed { return true }
-            // -S requires a property key match; name/class matches have no scalar to extract
-            fputs("error: -S requires a property key match or /@key selector\n", stderr)
-            return false
+            return printed ? .rendered : .noScalar
         }
         for (i, ctx) in contexts.enumerated() {
             if i > 0 { print("") }
@@ -30,15 +33,15 @@ func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool
         if contexts.count > 1 {
             print("\n\(contexts.count) results.")
         }
-        return true
+        return .rendered
 
     case .propertyValues(let results):
-        if results.isEmpty { return false }
+        if results.isEmpty { return .noMatches }
         if stringOnly {
             for result in results {
                 print(rawString(result.value))
             }
-            return true
+            return .rendered
         }
         for (i, result) in results.enumerated() {
             if i > 0 { print("") }
@@ -48,46 +51,44 @@ func renderResult(_ result: EvalResult, showProperties: Bool, showChildren: Bool
         if results.count > 1 {
             print("\n\(results.count) results.")
         }
-        return true
+        return .rendered
     }
 }
 
-// Decode raw bytes as a UTF-8 string (null-terminated), or nil if binary
-private func decodeBytesAsString(_ bytes: [UInt8]) -> String? {
-    let stripped = bytes.last == 0 ? Array(bytes.dropLast()) : bytes
-    guard !stripped.isEmpty,
-          let str = String(bytes: stripped, encoding: .utf8),
-          str.unicodeScalars.allSatisfy({ $0.value >= 32 || $0.value == 9 })
-    else { return nil }
-    return str
+// MARK: - Shared formatting helpers
+
+// UInt64-safe hex formatting — %x reads a 32-bit value and truncates ids above 2^32.
+func idHex(_ id: UInt64) -> String {
+    String(format: "0x%llx", id)
 }
 
-// Raw string value with no quotes or decoration — for scripting use
-func rawString(_ value: IORegValue) -> String {
-    switch value {
-    case .bool(let b):   return b ? "true" : "false"
-    case .int(let i):    return "\(i)"
-    case .float(let f):  return "\(f)"
-    case .string(let s): return s
-    case .data(let bytes):
-        if let str = decodeBytesAsString(bytes) { return str }
-        return bytes.map { String(format: "%02x", $0) }.joined(separator: " ")
-    case .array(let items): return items.map { rawString($0) }.joined(separator: "\n")
-    case .dict(let pairs):
-        return pairs.sortedByKey()
-            .map { "\($0.key)=\(rawString($0.value))" }
-            .joined(separator: "\n")
+// One line of a folded, enumerated child listing: "  1  name...  <class>  (N children)"
+func foldedChildLine(index: Int, child: IORegNode) -> String {
+    let deeper = child.children.isEmpty ? "" : "  (\(child.children.count) children)"
+    let paddedName = child.name.padding(toLength: 40, withPad: " ", startingAt: 0)
+    return String(format: "  %3d  %@  <%@>%@", index, paddedName, child.ioClass, deeper)
+}
+
+// Print a node's properties bag, matching the "Properties (N):" / "(none)" header style.
+func printPropertiesBlock(_ node: IORegNode) {
+    let props = node.properties.sortedByKey()
+    if props.isEmpty {
+        print("  Properties: (none)")
+    } else {
+        print("  Properties (\(props.count)):")
+        for (key, value) in props {
+            print("    \(key): \(formatValue(value, indent: 6))")
+        }
     }
 }
 
 // MARK: - Node identity block
 
 private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChildren: Bool, foldChildren: Bool) {
-    let idStr = String(format: "0x%x", ctx.node.id)
-    print("\(ctx.node.name) <\(ctx.node.ioClass)> [\(idStr)]")
+    print("\(ctx.node.name) <\(ctx.node.ioClass)> [\(idHex(ctx.node.id))]")
     print("  \(ctx.breadcrumbString)")
 
-    // Show matched property keys (from implicit/discovery search)
+    // Show matched property keys (from implicit/discovery search or a property predicate)
     for key in ctx.matchedPropertyKeys {
         if let val = ctx.node.properties[key] {
             print("  \(key) = \(formatValue(val, indent: 4))")
@@ -95,16 +96,7 @@ private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChi
     }
 
     if showProperties {
-        let props = ctx.node.properties.sortedByKey()
-        if props.isEmpty {
-            print("  Properties: (none)")
-        } else {
-            print("  Properties (\(props.count)):")
-            for (key, value) in props {
-                let valStr = formatValue(value, indent: 6)
-                print("    \(key): \(valStr)")
-            }
-        }
+        printPropertiesBlock(ctx.node)
     }
 
     if showChildren {
@@ -115,9 +107,7 @@ private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChi
             print("  Children (\(children.count)):")
             if foldChildren {
                 for (i, child) in children.enumerated() {
-                    let deeper = child.children.isEmpty ? "" : "  (\(child.children.count) children)"
-                    let paddedName = child.name.padding(toLength: 40, withPad: " ", startingAt: 0)
-                    print(String(format: "  %3d  %@  <%@>%@", i + 1, paddedName, child.ioClass, deeper))
+                    print(foldedChildLine(index: i + 1, child: child))
                 }
             } else {
                 renderChildTree(children, indent: 4)
@@ -129,8 +119,7 @@ private func renderNodeContext(_ ctx: NodeContext, showProperties: Bool, showChi
 private func renderChildTree(_ nodes: [IORegNode], indent: Int) {
     let pad = String(repeating: " ", count: indent)
     for node in nodes {
-        let idStr = String(format: "0x%x", node.id)
-        print("\(pad)\(node.name) <\(node.ioClass)> [\(idStr)]")
+        print("\(pad)\(node.name) <\(node.ioClass)> [\(idHex(node.id))]")
         if !node.children.isEmpty {
             renderChildTree(node.children, indent: indent + 2)
         }

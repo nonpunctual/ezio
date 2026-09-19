@@ -1,4 +1,5 @@
 // PathParser.swift — Tokenize and parse XPath-style path expressions
+import Foundation
 
 // MARK: - AST types
 
@@ -8,6 +9,7 @@ struct PathExpr {
     var propertySelect: String?
     var isImplicitSearch: Bool = false
     var implicitTerm: String?   // the bare search term, for three-dimension discovery
+    var implicitPredicates: [Predicate] = []  // predicates filtering the implicit search's own results
 }
 
 enum PathStep {
@@ -18,6 +20,7 @@ enum PathStep {
 enum NodeMatcher {
     case name(String)
     case wildcard
+    case implicit(String)  // bare-name discovery: matches node name, class, or property key
 }
 
 enum Predicate {
@@ -64,7 +67,7 @@ enum PathError: Error, CustomStringConvertible {
 
 // MARK: - Tokens
 
-private enum Token: Equatable {
+private enum Token: Equatable, CustomStringConvertible {
     case slash
     case doubleSlash
     case at
@@ -78,6 +81,24 @@ private enum Token: Equatable {
     case identifier(String)
     case quotedString(String)
     case hexNumber(UInt64)
+
+    var description: String {
+        switch self {
+        case .slash:                 return "/"
+        case .doubleSlash:           return "//"
+        case .at:                    return "@"
+        case .asterisk:              return "*"
+        case .openBracket:           return "["
+        case .closeBracket:          return "]"
+        case .openParen:             return "("
+        case .closeParen:            return ")"
+        case .equals:                return "="
+        case .comma:                 return ","
+        case .identifier(let s):     return s
+        case .quotedString(let s):   return "\"\(s)\""
+        case .hexNumber(let v):      return String(format: "0x%x", v)
+        }
+    }
 }
 
 // MARK: - Tokenizer
@@ -164,6 +185,8 @@ private func tokenize(_ input: String) throws -> [Token] {
 
 // MARK: - Parser
 
+private let defaultPlane = "IOService"
+
 struct PathParser {
     private let tokens: [Token]
     private var pos: Int = 0
@@ -176,10 +199,22 @@ struct PathParser {
         if trimmed.isEmpty { throw PathError.empty }
         let toks = try tokenize(trimmed)
         var parser = PathParser(tokens: toks)
-        return try parser.parsePath()
+        let expr = try parser.parsePath()
+        if !parser.atEnd {
+            throw PathError.unexpectedToken(parser.current!.description)
+        }
+        return expr
     }
 
     private mutating func advance() { pos += 1 }
+
+    // Consumes "@propName" (the `@` must already be current) and returns the property name.
+    private mutating func parseAtProperty() throws -> String {
+        advance()  // consume @
+        guard case .identifier(let p)? = current else { throw PathError.expectedName }
+        advance()
+        return p
+    }
 
     // MARK: Top-level dispatch
 
@@ -193,34 +228,25 @@ struct PathParser {
             return try parseDoubleSlashRoot()
         case .identifier(let name):
             advance()
-            // Bare name: discovery mode — matches name, class, and property keys
+            // Bare name: discovery mode — matches name, class, and property keys.
+            // Predicates filter the implicit search's own results (the evaluator applies
+            // them directly to those matches); further steps navigate below each result.
             let preds = try parsePredicates()
-            let (moreSeps, morePropSel) = try parseMoreSteps()
-            let step = PathStep.recursive(.name(name), preds)
+            let (moreSteps, morePropSel) = try parseMoreSteps()
             return PathExpr(
-                plane: "IOService",
-                steps: [step] + moreSeps,
+                plane: defaultPlane,
+                steps: moreSteps,
                 propertySelect: morePropSel,
                 isImplicitSearch: true,
-                implicitTerm: name
+                implicitTerm: name,
+                implicitPredicates: preds
             )
-        case .asterisk:
-            advance()
+        case .asterisk, .openBracket:
+            // Bare "*" or bare "[ClassName]" — wildcard recursive search in the default plane
             let preds = try parsePredicates()
             let (more, propSel) = try parseMoreSteps()
             return PathExpr(
-                plane: "IOService",
-                steps: [.recursive(.wildcard, preds)] + more,
-                propertySelect: propSel,
-                isImplicitSearch: false,
-                implicitTerm: nil
-            )
-        case .openBracket:
-            // [ClassName] bare top-level — class-only recursive search in IOService
-            let preds = try parsePredicates()
-            let (more, propSel) = try parseMoreSteps()
-            return PathExpr(
-                plane: "IOService",
+                plane: defaultPlane,
                 steps: [.recursive(.wildcard, preds)] + more,
                 propertySelect: propSel,
                 isImplicitSearch: false,
@@ -234,34 +260,24 @@ struct PathParser {
     // Called after consuming the opening /
     private mutating func parseAfterLeadingSlash() throws -> PathExpr {
         if atEnd {
-            // Just "/" — show IOService root
-            return PathExpr(plane: "IOService", steps: [], propertySelect: nil, isImplicitSearch: false)
+            // Just "/" — show default plane root
+            return PathExpr(plane: defaultPlane, steps: [], propertySelect: nil, isImplicitSearch: false)
         }
         switch current {
-        case .identifier(let first):
+        case .identifier(let first) where knownPlanes.contains(first):
             advance()
-            if knownPlanes.contains(first) {
-                return try parseAfterPlane(first)
-            }
-            // /someName — direct child of IOService root
-            let preds = try parsePredicates()
-            var steps: [PathStep] = [.direct(.name(first), preds)]
+            return try parseAfterPlane(first)
+        case .identifier, .asterisk:
+            // /someName or /* — direct child of the default plane root
+            let step = try parseNameOrWildcard(recursive: false)
+            var steps = [step]
             let (more, propSel) = try parseMoreSteps()
             steps += more
-            return PathExpr(plane: "IOService", steps: steps, propertySelect: propSel, isImplicitSearch: false)
-        case .asterisk:
-            advance()
-            let preds = try parsePredicates()
-            var steps: [PathStep] = [.direct(.wildcard, preds)]
-            let (more, propSel) = try parseMoreSteps()
-            steps += more
-            return PathExpr(plane: "IOService", steps: steps, propertySelect: propSel, isImplicitSearch: false)
+            return PathExpr(plane: defaultPlane, steps: steps, propertySelect: propSel, isImplicitSearch: false)
         case .at:
-            // /@prop — property on IOService root
-            advance()
-            guard case .identifier(let p)? = current else { throw PathError.expectedName }
-            advance()
-            return PathExpr(plane: "IOService", steps: [], propertySelect: p, isImplicitSearch: false)
+            // /@prop — property on the default plane root
+            let p = try parseAtProperty()
+            return PathExpr(plane: defaultPlane, steps: [], propertySelect: p, isImplicitSearch: false)
         default:
             throw PathError.expectedName
         }
@@ -273,7 +289,7 @@ struct PathParser {
         var steps = [step]
         let (more, propSel) = try parseMoreSteps()
         steps += more
-        return PathExpr(plane: "IOService", steps: steps, propertySelect: propSel, isImplicitSearch: false)
+        return PathExpr(plane: defaultPlane, steps: steps, propertySelect: propSel, isImplicitSearch: false)
     }
 
     // Called after consuming /PlaneName
@@ -287,9 +303,7 @@ struct PathParser {
             advance()
             if case .at? = current {
                 // /Plane/@prop
-                advance()
-                guard case .identifier(let p)? = current else { throw PathError.expectedName }
-                advance()
+                let p = try parseAtProperty()
                 return PathExpr(plane: plane, steps: [], propertySelect: p, isImplicitSearch: false)
             }
             recursive = false
@@ -316,9 +330,7 @@ struct PathParser {
                 advance()
                 if case .at? = current {
                     // /@prop — terminal property selector
-                    advance()
-                    guard case .identifier(let p)? = current else { throw PathError.expectedName }
-                    advance()
+                    let p = try parseAtProperty()
                     return (steps, p)
                 } else if !atEnd {
                     let step = try parseNameOrWildcard(recursive: false)

@@ -120,34 +120,30 @@ struct Ezio: ParsableCommand {
         let expr: PathExpr
         do {
             expr = try PathParser.parse(pathStr)
-        } catch let e as PathError {
-            fputs("error: \(e)\n", stderr)
-            Darwin.exit(1)
         } catch {
             fputs("error: \(error)\n", stderr)
-            Darwin.exit(1)
+            throw ExitCode.failure
         }
 
         // Evaluate
         let result: EvalResult
         do {
             result = try evaluate(expr: expr, planeLoader: loader)
-        } catch let e as LoaderError {
-            fputs("error: \(e)\n", stderr)
-            Darwin.exit(1)
-        } catch let e as IORegParserError {
-            fputs("error: failed to parse ioreg output: \(e)\n", stderr)
-            Darwin.exit(1)
         } catch {
             fputs("error: \(error)\n", stderr)
-            Darwin.exit(1)
+            throw ExitCode.failure
         }
 
         // Render
-        let hadResults = renderResult(result, showProperties: properties, showChildren: children, foldChildren: fold, stringOnly: stringOnly)
-        if !hadResults {
+        switch renderResult(result, showProperties: properties, showChildren: children, foldChildren: fold, stringOnly: stringOnly) {
+        case .rendered:
+            return
+        case .noMatches:
             print("No matches found.")
-            Darwin.exit(1)
+            throw ExitCode.failure
+        case .noScalar:
+            fputs("error: -S requires a property key match or /@key selector\n", stderr)
+            throw ExitCode.failure
         }
     }
 }

@@ -186,27 +186,21 @@ private func cmdCD(_ target: String, state: inout ShellState, planeLoader: (Stri
 private func cmdLS(_ node: IORegNode) {
     if node.children.isEmpty { print("  (no children)"); return }
     for (i, child) in node.children.enumerated() {
-        let childCount = child.children.isEmpty ? "" : "  (\(child.children.count) children)"
-        let paddedName = child.name.padding(toLength: 40, withPad: " ", startingAt: 0)
-        print(String(format: "  %3d  %@  <%@>%@",
-            i + 1, paddedName, child.ioClass, childCount))
+        print(foldedChildLine(index: i + 1, child: child))
     }
 }
 
 private func cmdInfo(_ node: IORegNode) {
     print("  name:     \(node.name)")
     print("  class:    \(node.ioClass)")
-    print("  id:       \(String(format: "0x%x", node.id))")
+    print("  id:       \(idHex(node.id))")
     print("  props:    \(node.properties.count)")
     print("  children: \(node.children.count)")
 }
 
 private func cmdRead(_ node: IORegNode) {
-    let props = node.properties.sortedByKey()
-    if props.isEmpty { print("  (no properties)"); return }
-    for (key, value) in props {
-        print("  \(key): \(formatValue(value, indent: 4))")
-    }
+    if node.properties.isEmpty { print("  (no properties)"); return }
+    printPropertiesBlock(node)
 }
 
 private func cmdGet(_ key: String, node: IORegNode) {
@@ -222,21 +216,17 @@ private func cmdGet(_ key: String, node: IORegNode) {
 
 private func cmdFind(_ term: String, node: IORegNode, plane: String, breadcrumb: [String]) {
     var found = 0
-    func search(_ n: IORegNode, crumb: [String]) {
-        let nameOrClass = n.name == term || n.ioClass == term
-        let matchedKeys = n.properties.keys.filter { $0 == term }.sorted()
-        if nameOrClass || !matchedKeys.isEmpty {
-            let path = ([plane] + crumb).joined(separator: "/")
-            print("  \(n.name) <\(n.ioClass)> [\(String(format: "0x%x", n.id))]")
-            print("    \(path)")
-            for key in matchedKeys {
-                if let val = n.properties[key] { print("    \(key) = \(formatValue(val, indent: 6))") }
-            }
-            found += 1
+    walkDescendants(of: node, startBreadcrumb: breadcrumb) { n, crumb in
+        let (matched, matchedKeys) = discoveryMatch(n, term: term)
+        guard matched else { return }
+        let path = ([plane] + crumb).joined(separator: "/")
+        print("  \(n.name) <\(n.ioClass)> [\(idHex(n.id))]")
+        print("    \(path)")
+        for key in matchedKeys {
+            if let val = n.properties[key] { print("    \(key) = \(formatValue(val, indent: 6))") }
         }
-        for child in n.children { search(child, crumb: crumb + [child.name]) }
+        found += 1
     }
-    for child in node.children { search(child, crumb: breadcrumb + [child.name]) }
     if found == 0 { print("  no matches for '\(term)'") }
     else if found > 1 { print("  \(found) results") }
 }
