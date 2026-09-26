@@ -24,6 +24,7 @@ enum NodeMatcher {
 }
 
 enum Predicate {
+    case nameEquals(String)
     case classEquals(String)
     case classContains(String)
     case idEquals(UInt64)
@@ -226,7 +227,7 @@ struct PathParser {
         case .doubleSlash:
             advance()
             return try parseDoubleSlashRoot()
-        case .identifier(let name):
+        case .identifier(let name), .quotedString(let name):
             advance()
             // Bare name: discovery mode — matches name, class, and property keys.
             // Predicates filter the implicit search's own results (the evaluator applies
@@ -353,7 +354,7 @@ struct PathParser {
             advance()
             let preds = try parsePredicates()
             return recursive ? .recursive(.wildcard, preds) : .direct(.wildcard, preds)
-        case .identifier(let n):
+        case .identifier(let n), .quotedString(let n):
             advance()
             let preds = try parsePredicates()
             return recursive ? .recursive(.name(n), preds) : .direct(.name(n), preds)
@@ -405,6 +406,12 @@ struct PathParser {
             guard case .identifier(let attr)? = current else { throw PathError.expectedName }
             advance()
             switch attr {
+            case "name":
+                guard case .equals? = current else {
+                    throw PathError.invalidPredicate("@name requires =")
+                }
+                advance()
+                return .nameEquals(try parseStringVal())
             case "class":
                 guard case .equals? = current else {
                     throw PathError.invalidPredicate("@class requires =")
@@ -433,6 +440,11 @@ struct PathParser {
             advance()
             if let n = Int(s), n >= 1 { return .position(n) }
             // [ClassName] shorthand — bare name in brackets means class match
+            return .classEquals(s)
+
+        case .quotedString(let s):
+            advance()
+            // ["ClassName"] shorthand — quoted name in brackets means class match
             return .classEquals(s)
 
         default:

@@ -12,14 +12,14 @@ struct Ezio: ParsableCommand {
 
             DISCOVER --> COLLECT
 
-            DISCOVER: Find the strings you need — 3 ways.
+            DISCOVER: Find the strings you need (3 ways):
 
-              1. Interactive shell - best for exploration, like dscl or scutil:
+              1. Interactive shell (best for exploration, like dscl or scutil):
 
                   ezio -i
                     > ls, cd, read, get, find
 
-              2. Bare search - matches node class (ioreg -c), and / or name (ioreg -n), and / or property key (ioreg -k):
+              2. Bare search (matches node class (ioreg -c), and / or name (ioreg -n), and / or property key (ioreg -k)):
 
                   ezio AppleSmartBattery              # find node, see its location
                   ezio AppleSmartBattery -p           # find node + show all properties
@@ -31,7 +31,10 @@ struct Ezio: ParsableCommand {
                   -C    — full recursive children tree below the matched node.
                   -C -F — folded, enumerated list of children showing how many children each node has.
 
-              3. Scoped search - XPath-style path expressions:
+                  Names with characters other than letters, digits, _ - . : (e.g. spaces or
+                  parentheses, as in "RTBuddy(SMC)") must be quoted: ezio '"RTBuddy(SMC)"'
+
+              3. Scoped search (XPath-style path expressions):
 
                   ezio '/IOService//[AppleSmartBattery]'          # by class
                   ezio '/IOService//[contains(@name,"Battery")]'  # substring on name

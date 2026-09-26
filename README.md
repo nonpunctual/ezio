@@ -47,7 +47,7 @@ OPTIONS:
   -C, --children          Show expansion of selected node
   -F, --fold              Show folded, enumerated child nodes
   -p, --properties        Show properties bag
-  -S, --string            Extract raw value without breadcrumbs (requires a property key match)
+  -S, --string            Extract raw value without breadcrumbs
   -h, --help              Show help information
 ```
 
@@ -77,6 +77,7 @@ OPTIONS:
 | `/IOService//Name` | recursive search by name (strict) |
 | `/IOService//[ClassName]` | search by class (shorthand) |
 | `/IOService//[@class=Name]` | search by class (explicit) |
+| `/IOService//[@name=Name]` | search by name (explicit) |
 | `/IOService//[contains(@name,"x")]` | substring match on name |
 | `/IOService//[contains(@class,"x")]` | substring match on class |
 | `/IOService//[@id=0x...]` | match by registry ID |
@@ -113,6 +114,8 @@ ezio AppleRawBatteryVoltage         # find any node that has this key
 - `-p` — full properties bag of the matched node.
 - `-C` — full recursive children tree below the matched node.
 - `-C -F` — folded, enumerated list of children showing how many children each node has.
+
+Names with characters other than letters, digits, `_` `-` `.` `:` (e.g. spaces or parentheses, as in `RTBuddy(SMC)`) must be quoted: `ezio '"RTBuddy(SMC)"'`
 
 **3. Scoped search** - XPath-style path expressions:
 ```sh
@@ -203,16 +206,16 @@ Z4W9WXVN5X
 **Xpath-style array mapping** - see enumerated child nodes and the number of child nodes in each node below:
 ```sh
 % ezio '/IOService//J516sAP' -C -F
-J516sAP <IOPlatformExpertDevice> [0x2b6]
+J516sAP <IOPlatformExpertDevice> [0x1000002b6]
   IOService > Root > J516sAP
   Children (8):
     1  options                                   <IODTNVRAM>  (4 children)
     2  AppleARMPE                                <AppleARMPE>  (42 children)
     3  IOResources                               <IOResources>  (51 children)
     4  IOUserResources                           <IOUserResources>  (1 children)
-    5  IOUserServer(com.apple.IOUserDockChannel  <IOUserServer>
-    6  IOUserServer(com.apple.driverkit.AppleUs  <IOUserServer>
-    7  IOUserServer(com.apple.bcmwlan-0x100000e  <IOUserServer>
+    5  IOUserServer(com.apple.bcmwlan-0x100000d  <IOUserServer>
+    6  IOUserServer(com.apple.IOUserDockChannel  <IOUserServer>
+    7  IOUserServer(com.apple.driverkit.AppleUs  <IOUserServer>
     8  IOUserServer(com.apple.IOUserBluetoothSe  <IOUserServer>
 ```
 

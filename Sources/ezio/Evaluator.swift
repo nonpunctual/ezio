@@ -128,6 +128,7 @@ private func nodeMatches(_ node: IORegNode, matcher: NodeMatcher, predicates: [P
 // Returns the property keys the predicate matched via (possibly empty), or nil if it failed.
 private func satisfiesPredicate(_ pred: Predicate, node: IORegNode) -> [String]? {
     switch pred {
+    case .nameEquals(let s):      return node.name == s ? [] : nil
     case .classEquals(let s):     return node.ioClass == s ? [] : nil
     case .classContains(let s):   return node.ioClass.contains(s) ? [] : nil
     case .idEquals(let v):        return node.id == v ? [] : nil
