@@ -83,6 +83,25 @@ struct Ezio: ParsableCommand {
     var stringOnly: Bool = false
 
     func run() throws {
+        // Planes listing
+        if planes {
+            for (name, desc) in planeList {
+                print("  \(name.padding(toLength: 16, withPad: " ", startingAt: 0))  \(desc)")
+            }
+            return
+        }
+
+        // Interactive mode reads its own commands from stdin, so it must never
+        // let the piped-stdin detection below consume that input first.
+        if interactive {
+            let loader: (String) throws -> IORegNode = { plane in
+                let data = try loadPlaneData(plane: plane, stdinData: nil)
+                return try parsePlane(data: data)
+            }
+            runInteractive(planeLoader: loader)
+            return
+        }
+
         // Detect piped stdin before anything else.
         // Treat empty stdin as no pipe — covers non-tty subprocess environments.
         let stdinData: Data? = {
@@ -95,20 +114,6 @@ struct Ezio: ParsableCommand {
         let loader: (String) throws -> IORegNode = { plane in
             let data = try loadPlaneData(plane: plane, stdinData: stdinData)
             return try parsePlane(data: data)
-        }
-
-        // Planes listing
-        if planes {
-            for (name, desc) in planeList {
-                print("  \(name.padding(toLength: 16, withPad: " ", startingAt: 0))  \(desc)")
-            }
-            return
-        }
-
-        // Interactive mode
-        if interactive {
-            runInteractive(planeLoader: loader)
-            return
         }
 
         // No argument: show help
